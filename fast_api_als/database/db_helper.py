@@ -1,5 +1,4 @@
 import uuid
-import logging
 import time
 import boto3
 import botocore
@@ -9,6 +8,9 @@ from datetime import datetime, timedelta
 
 from fast_api_als import constants
 from fast_api_als.utils.boto3_utils import get_boto3_session
+from fast_api_als.utils.base_logger import logger
+from fast_api_als.utils.measure_time import measure_time
+
 """
     the self.table.some_operation(), return a json object and you can find the http code of the executed operation as this :
     res['ResponseMetadata']['HTTPStatusCode']
@@ -38,7 +40,9 @@ class DBHelper:
             'response': response,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"Lead inserted. Lead hash = {lead_hash}, result = {res}, took {t}ms")
+        verify_response(res, item)
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -63,8 +67,9 @@ class DBHelper:
             "postalcode": postalcode,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
-
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"OEM Lead inserted. Lead hash = {lead_hash}, result = {res}, took {t}ms")
+        verify_response(res, item)
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -82,6 +87,7 @@ class DBHelper:
                 }
             }
         else:
+            logger.info(f"Duplicate api call for {lead_hash}:{lead_provider}")
             return {
                 "Duplicate_Api_Call": {
                     "status": True,
@@ -108,7 +114,9 @@ class DBHelper:
         if not item:
             return False
         item['gsisk'] = "1#0"
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"Lead sent status updated for lead uuid = {uuid}, result = {res} and took {t}ms")
+        verify_response(res, item)
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -151,6 +159,7 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        logger.info(f"Auth key set for {username}")
         return apikey
 
     def register_3PL(self, username: str):
@@ -165,7 +174,9 @@ class DBHelper:
     def set_make_model_oem(self, oem: str, make_model: str):
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"Make model {make_model} for OEM {oem} set in {t}ms")
+        verify_response(res, item)
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -194,6 +205,7 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        logger.info(f"New OEM {oem} created for make {make_model}")
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +214,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        logger.info(f"OEM {oem} deleted")
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +225,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            logger.info(f"Deleted 3PL for {username}")
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -220,7 +234,9 @@ class DBHelper:
                 "error": f"OEM {oem} not found"
             }
         item['threshold'] = threshold
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"OEM {oem} threshold set to {threshold}in {t}ms")
+        verify_response(res, item)
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -232,6 +248,7 @@ class DBHelper:
                 ":val1": {"S": oem},
             }
         }
+        start_time = time.time()
         res = self.geo_data_manager.queryRadius(
             dynamodbgeo.QueryRadiusRequest(
                 dynamodbgeo.GeoPoint(lat, lon),
@@ -240,6 +257,8 @@ class DBHelper:
                 sort=True
             )
         )
+        time_taken = int((time.time() - start_time) * 1000)
+        logger.info(f"Took {time_taken}ms to find nearest dealer. Found = {len(res) > 0}")
         if len(res) == 0:
             return {}
         res = res[0]
@@ -287,7 +306,9 @@ class DBHelper:
             'model': model,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"Customer lead inserted for lead uuid = {uuid}, result = {res}, took {t}ms")
+        verify_response(res, item)
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -318,6 +339,7 @@ class DBHelper:
 
         for item in customer_leads:
             if self.lead_exists(item['pk'], make, model):
+                logger.info(f"Found duplicate lead for {email},{phone},{last_name},{make},{model}")
                 return {"Duplicate_Lead": True}
         return {"Duplicate_Lead": False}
 
@@ -342,15 +364,18 @@ class DBHelper:
         item['oem_responded'] = 1
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
-        res = self.table.put_item(Item=item)
+        t, res = measure_time(lambda: self.table.put_item(Item=item))
+        logger.info(f"Lead conversion updated for lead uuid = {lead_uuid}, result = {res}, took {t}ms")
+        verify_response(res, item)
         return True, item
 
 
-def verify_response(response_code):
-    if not response_code == 200:
-        pass
+def verify_response(response, item):
+    result_code = response['ResponseMetadata']['HTTPStatusCode']
+    if result_code == 200:
+        logger.info("New item added to database.")
     else:
-        pass
+        logger.error(f"Item {item} could not be added to the database.")
 
 
 session = get_boto3_session()
