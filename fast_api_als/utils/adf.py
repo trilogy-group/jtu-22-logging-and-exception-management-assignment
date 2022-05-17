@@ -38,8 +38,11 @@ def is_nan(x):
 
 
 def parse_xml(adf_xml):
-    # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    try:
+        obj = xmltodict.parse(adf_xml)
+    except Exception as e:
+        logging.error(f'Unable to parse adf xml, {e}')
+        raise Exception('Unable to parse adf xml')
     return obj
 
 

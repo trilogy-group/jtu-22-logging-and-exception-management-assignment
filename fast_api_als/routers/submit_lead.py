@@ -48,10 +48,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         f'[Submit File]: file body parsed and converted to string in {now - start}ms')
 
     before = int(time.time() * 1000.0)
-    try:
-        obj = parse_xml(body)
-    except:
-        logging.error("[Submit File]: Unable to parse body xml")
+    obj = parse_xml(body)
     now = int(time.time() * 1000.0)
     logging.info(f'[Submit File]: Body xml parsed in {now - before}ms')
 
