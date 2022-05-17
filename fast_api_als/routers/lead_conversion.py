@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -42,23 +42,33 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
+
+    logging.info("Recieving data")
+    t1 = (int)(time.time()*1000)
     body = await file.body()
-    body = json.loads(str(body, 'utf-8'))
+    t2 = (int)(time.time()*1000)
+    logging.info(f'Recieved data in {t2-t1} ms.')
+    try:
+        body = json.loads(str(body, 'utf-8'))
+    except:
+        logging.error("Unable to load data")
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        logging.error("lead_uuid or converted are not available.")
+        raise HTTPException(status_code = 500, detail="lead_uuid or converted are not available.")
+        
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.error("User Not Authorised(role is not oem).")
+        raise HTTPException(status_code=401, detail="User Not Authorised")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
+        logging.info("Lead Conversion  updated")
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
         return {
@@ -66,5 +76,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logging.error("Lead Conversion not updated")
+        raise HTTPException(status_code=500, detail="Lead Conversion not updated")
