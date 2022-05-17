@@ -33,11 +33,17 @@ you will get the idea about the part when you go through the code.
 
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
+
+    logging.info('Submitting lead...')
     start = int(time.time() * 1000.0)
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
+        try : 
+            raise HTTPException(status_code=446, detail="api_key not verified")
+        except : 
+            logging.error(' ',exc_info = True)
         pass
     
     body = await file.body()
@@ -55,6 +61,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logging.info('xml was not parsable')
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -214,5 +221,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
-
+    logging.info(response_message)
+    
     return response_body
