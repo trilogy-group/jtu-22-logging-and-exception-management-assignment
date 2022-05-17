@@ -10,35 +10,66 @@ from starlette.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 
 router = APIRouter()
 
+logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
 
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
-    body = await request.body()
-    body = json.loads(body)
-    provider, role = get_user_role(token)
-    if role != "ADMIN" and (role != "3PL"):
-        pass
-    if role == "ADMIN":
-        provider = body['3pl']
-    apikey = db_helper_session.set_auth_key(username=provider)
-    return {
-        "status_code": HTTP_200_OK,
-        "x-api-key": apikey
-    }
+    start = int(time.time() * 1000.0)
+    try:
+        logging.info("Reset Auth Key Request")
+        body = await request.body()
+        body = json.loads(body)
+
+        logging.info("Checking Required permissions")
+        provider, role = get_user_role(token)
+        if role != "ADMIN" and (role != "3PL"):
+            time_taken = int(time.time() * 1000.0) - start
+            logging.info(f"Permission Missing : Auth Key Reset Request Terminated in {time_taken}ms")
+            raise HTTPException(status_code=403,detail="You do not have required permission")
+            # pass
+        if role == "ADMIN":
+            provider = body['3pl']
+
+        logging.info("Setting Auth Key")
+        apikey = db_helper_session.set_auth_key(username=provider)
+        time_taken = int(time.time() * 1000.0) - start
+        logging.info(f"Auth Key Resetted in {time_taken}ms")
+        return {
+            "status_code": HTTP_200_OK,
+            "x-api-key": apikey
+        }
+    except as e:
+        logging.error(f"AuthKey Reset Failed: {e.message}")
+        raise HTTPException(status_code=500,detail="Something Went Wrong")
 
 
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
-    body = await request.body()
-    body = json.loads(body)
-    provider, role = get_user_role(token)
+    start = int(time.time() * 1000.0)
+    try:
+        logging.info("View Auth Key Request")
+        body = await request.body()
+        body = json.loads(body)
 
-    if role != "ADMIN" and role != "3PL":
-        pass
-    if role == "ADMIN":
-        provider = body['3pl']
-    apikey = db_helper_session.get_auth_key(username=provider)
-    return {
-        "status_code": HTTP_200_OK,
-        "x-api-key": apikey
-    }
+        logging.info("Checking Required permissions")
+        provider, role = get_user_role(token)
+
+        if role != "ADMIN" and role != "3PL":
+            time_taken = int(time.time() * 1000.0) - start
+            logging.info(f"Permission Missing : Auth Key Fetch Request Terminated in {time_taken}ms")
+            raise HTTPException(status_code=403,detail="You do not have required permissions")
+            # pass
+        if role == "ADMIN":
+            provider = body['3pl']
+
+        logging.info("Getting Auth Key")
+        apikey = db_helper_session.get_auth_key(username=provider)
+        time_taken = int(time.time() * 1000.0)
+        logging.info(f"Auth Key Returned in {time_taken}ms")
+        return {
+            "status_code": HTTP_200_OK,
+            "x-api-key": apikey
+        }
+    except as e:
+        logging.error(f"AuthKey View Request Failed: {e.message}")
+        raise HTTPException(status_code=500,detail="Something Went Wrong")
