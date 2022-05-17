@@ -16,7 +16,8 @@ router = APIRouter()
 """
 write proper logging and exception handling
 """
-
+logging.basicConfig(filename='test.log',level=logging.DEBUG
+                    format='%(asctime)s:%(levelname)s:%(message)s')
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
