@@ -25,7 +25,7 @@ logger.addHandler(filehandler)
 def myLogger(operation, response_code, response_data):
     logger.info(f'OPERATION: {operation}')
     logger.info(f'STATUS_CODE: {response_code}')
-    if response_code == 200 or response_code == '200':
+    if response_code == 200:
         logger.info(f'CONTEXT_DATA: {response_data} was successful')
     else:
         logger.error(f'CONTEXT_DATA: {response_data} gave error')
@@ -38,6 +38,7 @@ class DBHelper:
         self.geo_data_manager = self.get_geo_data_manager()
         self.dealer_table = self.ddb_resource.Table(constants.DEALER_DB_TABLE)
         self.get_api_key_author("Initialize_Connection")
+        logger.info('DBHelper initialized')
 
     def get_geo_data_manager(self):
         config = dynamodbgeo.GeoDataManagerConfiguration(self.session.client('dynamodb', config=botocore.client.Config(max_pool_connections=99)), constants.DEALER_DB_TABLE)
@@ -271,6 +272,7 @@ class DBHelper:
             )
         )
         if len(res) == 0:
+            logger.info(f'fetch nearest dealer returned no dealers')
             return {}
         res = res[0]
         dealer = {
@@ -284,6 +286,7 @@ class DBHelper:
                 }
             }
         }
+        logger.info(f'fetch nearest dealer returned: {dealer}')
         return dealer
 
     def get_dealer_data(self, dealer_code: str, oem: str):
@@ -293,6 +296,7 @@ class DBHelper:
             IndexName='dealercode-index',
             KeyConditionExpression=Key('dealerCode').eq(dealer_code) & Key('oem').eq(oem)
         )
+        myLogger('query', res['ResponseMetadata']['HTTPStatusCode'], 'get_dealer_data')
         res = res['Items']
         if len(res) == 0:
             return {}
