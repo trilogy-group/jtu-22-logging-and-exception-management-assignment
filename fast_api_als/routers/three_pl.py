@@ -10,15 +10,17 @@ from starlette.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 
 router = APIRouter()
 
-logging.basicConfig(filename='test.log', level=logging.DEBUG,
+logging.basicConfig(filename='test.log', level=logging.INFO,
 format='%(asctime)s:%(levelname)s:%(message)s')
 
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
     body = json.loads(body)
-    logging.
+    logging.info("body recieved by post request of authkey is "+body)
     provider, role = get_user_role(token)
+    logging.info("provider and role in post request of authkey is "+provider+role)
+    
     if role != "ADMIN" and (role != "3PL"):
         pass
     if role == "ADMIN":
