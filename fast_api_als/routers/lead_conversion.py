@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -12,7 +12,7 @@ from fast_api_als.services.authenticate import get_token
 from fast_api_als.utils.cognito_client import get_user_role
 
 router = APIRouter()
-
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s')
 """
 write proper logging and exception handling
 """
@@ -26,6 +26,18 @@ def get_quicksight_data(lead_uuid, item):
             Returns:
                 S3 data
     """
+    try:
+        item['make']
+    except:
+        logging.error("func get_quicksight_data: parameter item does not have 'make' property.")
+        raise Exception("Item does not have make")
+
+    try:
+        item['model']
+    except:
+        logging.error("func get_quicksight_data: parameter item does not have 'model' property.")
+        raise Exception("Item does not have model")
+
     data = {
         "lead_hash": lead_uuid,
         "epoch_timestamp": int(time.time()),
@@ -37,6 +49,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logging.info("Created the lead converted data for dumping into S3 Successfully.")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -46,16 +59,17 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        logging.info("lead_conversion: func submit - lead_uuid or converted not in body.")
+        raise HTTPException(400,detail="lead_uuid or converted not in body.")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.info("lead_conversion: func submit - user does not have access rights")
+        raise HTTPException(401,detail="user is unauthorized")
+
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +80,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logging.info("lead_conversion: func submit - lead conversion not updated")
+        raise HTTPException(400,detail="lead conversion not updated")
