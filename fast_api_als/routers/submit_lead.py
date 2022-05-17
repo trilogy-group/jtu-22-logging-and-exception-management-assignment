@@ -30,6 +30,8 @@ keep in mind:
 You as a developer has to find how much time each part of code takes.
 you will get the idea about the part when you go through the code.
 """
+logging.basicConfig(filename='test.log', level=logging.INFO,
+format='%(asctime)s:%(levelname)s:%(message)s')
 
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
@@ -38,13 +40,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
+        raise HTTPException(status_code=401, detail="Unauhorized")
     
     body = await file.body()
     body = str(body, 'utf-8')
 
+    
     obj = parse_xml(body)
-
+    
     # check if xml was not parsable, if not return
     if not obj:
         provider = db_helper_session.get_api_key_author(apikey)
@@ -55,12 +58,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logging.error("unparseable body in post request of submit")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
-    
+    logging.info("parsed body in post request of submit successfully")
     lead_hash = calculate_lead_hash(obj)
 
     # check if adf xml is valid
@@ -70,6 +74,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logging.error("not valid in post request of submit")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -81,7 +86,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     email, phone, last_name = get_contact_details(obj)
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
-
+    logging.info("model is ",model)
 
     fetched_oem_data = {}
 
@@ -94,6 +99,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                    ]
         for future in as_completed(futures):
             result = future.result()
+            if not result:
+                logging.warning("result is undefined in post request of submit")
             if result.get('Duplicate_Api_Call', {}).get('status', False):
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
@@ -120,7 +127,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "message": "OEM data not found"
         }
     oem_threshold = float(fetched_oem_data['threshold'])
-
+    if not oem_threshold:
+        logging.warning("oem_threshold in post request of submit is undefined")
     # if dealer is not available then find nearest dealer
     if not dealer_available:
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
@@ -132,13 +140,19 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
-
+    if not model_input:
+        logging.warning("model_input in post request of submit is undefined")
+    else :
+        logging.info("model_input is good in post request of submit")
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
-
+    if not result:
+        logging.warning("result in post request of submit is undefined")
+    else :
+        logging.info("result is good")
     # create the response
     response_body = {}
     if result >= oem_threshold:
@@ -196,6 +210,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
+        if not message:
+            logging.warning("message in post request of submit is undefined")
+        else :
+            logging.info("message is good in post request of submit")
         res = sqs_helper_session.send_message(message)
 
     else:

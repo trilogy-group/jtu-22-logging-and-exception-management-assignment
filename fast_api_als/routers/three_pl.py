@@ -17,14 +17,22 @@ format='%(asctime)s:%(levelname)s:%(message)s')
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
     body = json.loads(body)
-    logging.info("body recieved by post request of authkey is "+body)
-    provider, role = get_user_role(token)
+    logging.info("body recieved by post request of reset_authkey is "+body)
+    try :
+        provider, role = get_user_role(token)
+    except:
+        logging.error("provider / role is undefined in post request of reset_authkey")
     logging.info("provider and role in post request of authkey is "+provider+role)
     
     if role != "ADMIN" and (role != "3PL"):
-        pass
+        raise HTTPException(
+            status_code=401)
     if role == "ADMIN":
         provider = body['3pl']
+        if not provider:
+            logging.warning("provider is not defined in post request of view_authkey")
+        else :
+            logging.info("provider is defined")
     apikey = db_helper_session.set_auth_key(username=provider)
     return {
         "status_code": HTTP_200_OK,
@@ -35,14 +43,22 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
-    logging.debug()
+    logging.info("body recieved by post request of view_authkey is "+body)
+    
     body = json.loads(body)
-    provider, role = get_user_role(token)
+    try :
+        provider, role = get_user_role(token)
+    except:
+        logging.error("provider / role is undefined in post request of view_authkey")
+    logging.info("provider and role in post request of authkey is "+provider+role)
 
     if role != "ADMIN" and role != "3PL":
-        pass
+        raise HTTPException(
+            status_code=401)
     if role == "ADMIN":
         provider = body['3pl']
+        if not provider:
+            logging.warning("provider is not defined in post request of view_authkey")
     apikey = db_helper_session.get_auth_key(username=provider)
     return {
         "status_code": HTTP_200_OK,

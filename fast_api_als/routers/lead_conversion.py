@@ -16,6 +16,8 @@ router = APIRouter()
 """
 write proper logging and exception handling
 """
+logging.basicConfig(filename='test.log', level=logging.INFO,
+format='%(asctime)s:%(levelname)s:%(message)s')
 
 def get_quicksight_data(lead_uuid, item):
     """
@@ -44,9 +46,15 @@ def get_quicksight_data(lead_uuid, item):
 async def submit(file: Request, token: str = Depends(get_token)):
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
-
+    logging.info("body recieved by post request of reset_authkey is "+body)
+    try :
+        provider, role = get_user_role(token)
+    except:
+        logging.error("provider / role is undefined in post request of reset_authkey")
+    logging.info("provider and role in post request of authkey is "+provider+role)
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
+        raise HTTPException(
+            status_code=400,detail="leaduuid or converted is missing")
         pass
         
     lead_uuid = body['lead_uuid']
@@ -54,7 +62,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
+        raise HTTPException(status_code=401, detail="Unauhorized")
+    
         pass
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
@@ -66,5 +75,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
+        HTTPException(status_code=400, detail="unable to update")
+    
         pass
