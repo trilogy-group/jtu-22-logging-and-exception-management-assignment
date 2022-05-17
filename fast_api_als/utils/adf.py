@@ -42,6 +42,7 @@ def parse_xml(adf_xml):
         obj = xmltodict.parse(adf_xml)
         return obj
     except:
+        logging.error("Error in parsing adf_xml")
         raise Exception("Error in parsing adf_xml")
     
 
