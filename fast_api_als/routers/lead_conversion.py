@@ -76,5 +76,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
         pass
