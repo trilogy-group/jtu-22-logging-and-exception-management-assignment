@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -17,6 +17,7 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -26,6 +27,17 @@ def get_quicksight_data(lead_uuid, item):
             Returns:
                 S3 data
     """
+
+    if 'make' not in item:
+        logging.error(
+            '[generate quicksight data]: property `make` missing in item')
+        raise Exception('property `make` missing in item')
+
+    if 'model' not in item:
+        logging.error(
+            '[generate quicksight data]: property `model` missing in item')
+        raise Exception('property `model` missing in item')
+
     data = {
         "lead_hash": lead_uuid,
         "epoch_timestamp": int(time.time()),
@@ -46,18 +58,23 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
-        
+        logging.error(
+            "[Lead Conversion]: `lead_uuid` or `converted` missing in body")
+        raise HTTPException(
+            status_code=500, detail="`lead_uuid` or `converted` missing in body")
+
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.error(
+            "[Lead Conversion]: Unauthorized Role")
+        raise HTTPException(
+            status_code=401, detail="Unauthorized Role")
 
-    is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
+    is_updated, item = db_helper_session.update_lead_conversion(
+        lead_uuid, oem, converted)
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
@@ -66,5 +83,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logging.error(
+            "[Lead Conversion]: Unable to update lead conversation")
+        raise HTTPException(
+            status_code=500, detail="Unable to update lead conversation")
