@@ -4,7 +4,19 @@ import logging
 from uszipcode import SearchEngine
 import re
 
+logger=logging.getlogger(__name__)
+logger.setLevel(logging.DEBUG)
 
+formatter=logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+
+file_handler=logging.FileHandler('adf.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+
+class notMatchediso6801(Exception):
+    pass
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -28,7 +40,10 @@ def validate_iso8601(requestdate):
     try:
         if match_iso8601(requestdate) is not None:
             return True
-    except:
+        else:
+            raise notMatchediso6801
+    except notMatchediso6801:
+        logger.error(f"the requestdate {requestdate} doesn't match with the iso8601 format")
         pass
     return False
 

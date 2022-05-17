@@ -173,7 +173,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     result = score_ml_input(ml_input, make, dealer_available)
     
     e1=int(time.time()*1000.0)
-    logger.info("The execution time for enriching, converting and scoring the lead is:{e1-end}")
+    logger.info(f"The execution time for enriching, converting and scoring the lead is:{e1-end}")
 
     # create the response
     response_body = {}
