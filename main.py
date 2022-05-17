@@ -25,7 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s')
- 
+
 
 
 @app.get("/")
