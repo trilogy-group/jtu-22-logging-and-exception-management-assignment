@@ -58,9 +58,13 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):
             email_valid = True
+    if(email_valid==True) logger.info("Email verified")
+    else logger.error("Email not verified")
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+    if(phone_valid==True) logger.info("Phone verified")
+    else logger.error("Phone not verified")
     end=int(time.time()*1000.0)
     logger.info("verify_phone_and_email completed")
     logger.info("Execution time is:{end-start}")
