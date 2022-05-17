@@ -67,7 +67,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        logging.info("lead_conversion: func submit - user does not have access rights")
+        logging.info("lead_conversion: func submit - user is unauthorized")
         raise HTTPException(401,detail="user is unauthorized")
 
 
