@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -27,6 +27,7 @@ file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 
+logger.info("get_quicksight_data function initiated")
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -48,8 +49,9 @@ def get_quicksight_data(lead_uuid, item):
         "oem_responded": 1
     }
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
+logger.info("get_quicksight_data function completed")
 
-
+logger.info("submit function initiated")
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
     body = await file.body()
@@ -78,3 +80,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
     else:
         raise HTTPException(status_code=404, detail="Not Found")
         pass
+logger.info("submit function completed")
