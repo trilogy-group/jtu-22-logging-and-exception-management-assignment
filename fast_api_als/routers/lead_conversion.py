@@ -37,6 +37,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logging.info(f"[Lead conversion] Quicksight data processed for lead with uuid {lead_uuid}")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -47,24 +48,27 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=404, detail="lead_uuid or converted not found in body")
+        return
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
+    log.info(f"[Lead conversion] Lead conversion in progress for lead with uuid {lead_uuid}")
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
+        raise HTTPException(status_code=403, detail="Unauthorized. OEM role required.")
         pass
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logging.info("[Lead conversion] Lead coversion updated successfully")
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
+       raise HTTPException(status_code=401, detail="Could not update lead conversion.")
         pass
