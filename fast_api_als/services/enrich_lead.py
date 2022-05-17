@@ -2,7 +2,7 @@ import calendar
 import time
 import logging
 from dateutil import parser
-from fast_api_als.database.db_helper import db_helper_session
+from database.db_helper import db_helper_session
 
 from fast_api_als import constants
 
