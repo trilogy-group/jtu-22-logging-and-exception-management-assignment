@@ -1,6 +1,17 @@
+from http.client import HTTPException
 import time
 import uuid
 import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter("%(asctime)s : %(levelname)s : %(name)s : %(message)s")
+
+filehandler = logging.FileHandler('routers.log')
+filehandler.setFormatter(formatter)
+
+logger.addHandler(filehandler)
 
 from datetime import datetime
 from fastapi import APIRouter
@@ -37,8 +48,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
-        # throw proper fastpi.HTTPException
-        pass
+        raise HTTPException(status_code=401, detail="User unauthorized")
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -55,6 +65,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logger.error('Error occured while parsing XML')
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -70,11 +81,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logger.error("Validation failed: adf xml")
         return {
             "status": "REJECTED",
             "code": validation_code,
             "message": validation_message
         }
+    else:
+        logger.info("adf xml validated")
 
     # check if vendor is available here
     dealer_available = True if obj['adf']['prospect'].get('vendor', None) else False
@@ -82,11 +96,17 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
 
+    if dealer_available:
+        logger.info("Dealer(s) available")
+    else:
+        logger.info("No dealer is available")
 
     fetched_oem_data = {}
 
     # check if 3PL is making a duplicate call or it is a duplicate lead
     with ThreadPoolExecutor(max_workers=5) as executor:
+        logger.info("A new call initiated")
+        start = int(time.time() * 1000.0)
         futures = [executor.submit(db_helper_session.check_duplicate_api_call, lead_hash,
                                    obj['adf']['prospect']['provider']['service']),
                    executor.submit(db_helper_session.check_duplicate_lead, email, phone, last_name, make, model),
@@ -95,11 +115,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                end = int(time.time() * 1000.0)
+                logger.warning(f"Duplicate api call found: {end-start}ms")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                end = int(time.time() * 1000.0)
+                logger.warning(f"Duplicate lead found: {int(time.time() * 1000.0)-start}ms")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -107,29 +131,43 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 }
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
+        end = int(time.time() * 1000.0)
+        logger.info(f"Call executed: {end-start}ms")
+        logger.info(f"Fetched data : {fetched_oem_data}")
     if fetched_oem_data == {}:
+        logger.error("OEM data not found")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logger.error("OEM data not found")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     oem_threshold = float(fetched_oem_data['threshold'])
+    logger.info(f"OEM threshold fetchted: {oem_threshold}")
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logger.info("Dealer not available, finding the nearest dealer")
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
                                                                 lon=lon)
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
+        if (dealer_available):
+            logger.info(f"A dealer is found: {nearest_vendor}")
+        else:
+            logger.info("No nearby dealer found")
 
+    logger.info("Initiating calculation of lead score")
+    start = int(time.time() * 1000.0)
+    
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
 
@@ -139,6 +177,9 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
 
+    end = int(time.time() * 1000.0)
+    logger.info(f"Lead score calculated: {result} : {end-start}ms")
+
     # create the response
     response_body = {}
     if result >= oem_threshold:
@@ -147,13 +188,17 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     else:
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
+    logger.info(f"Response created : {response_body}")
 
     # verify the customer
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logger.warning("Customer not verified")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
+        else:
+            logger.info("Customer verified")
 
     lead_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, email + phone + last_name + make + model))
     item, path = create_quicksight_data(obj['adf']['prospect'], lead_uuid, response_body['status'],
@@ -161,6 +206,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # insert the lead into ddb with oem & customer details
     # delegate inserts to sqs queue
     if response_body['status'] == 'ACCEPTED':
+        logger.info("Intialising insertion of the lead into db")
         make_model_filter = db_helper_session.get_make_model_filter_status(make)
         message = {
             'put_file': {
@@ -197,8 +243,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         res = sqs_helper_session.send_message(message)
+        logger.info("Lead inserted into db")
 
     else:
+        logger.info("Respnse body not accepted")
         message = {
             'put_file': {
                 'item': item,
@@ -211,8 +259,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         res = sqs_helper_session.send_message(message)
-    time_taken = (int(time.time() * 1000.0) - start)
+    time_taken = (int(time.time() * 1000.0) - t1)
 
     response_message = f"{result} Response Time : {time_taken} ms"
+
+    logger.info(response_message)
 
     return response_body
