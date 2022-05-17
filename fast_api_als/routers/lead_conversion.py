@@ -1,15 +1,16 @@
 import json
 from fastapi import APIRouter, Depends
-import logging
 import time
 
 from fastapi import Request
 from starlette import status
+from starlette.exceptions import HTTPException
 
 from fast_api_als.database.db_helper import db_helper_session
 from fast_api_als.quicksight.s3_helper import s3_helper_client
 from fast_api_als.services.authenticate import get_token
 from fast_api_als.utils.cognito_client import get_user_role
+from fast_api_als.utils.base_logger import logger
 
 router = APIRouter()
 
@@ -46,25 +47,36 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
-        
+        missing_info = "lead UUID" if 'lead_uuid' not in body else 'converted'
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing {missing_info}"
+        )
+
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
+    logger.info(f"User role status: {oem}, {role} ")
+
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized request"
+        )
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logger.info(f"Lead conversion status updated for {lead_uuid}")
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid lead id"
+        )
+
