@@ -366,7 +366,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
-        loggerx(res['ResponseMetadata']['HTTPStatusCode']. 'get_api_key_author', 'query')
+        loggerx(res['ResponseMetadata']['HTTPStatusCode'], 'get_api_key_author', 'query')
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"

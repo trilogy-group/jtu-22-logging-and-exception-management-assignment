@@ -13,7 +13,7 @@ logger.setLevel(logging.INFO)
 
 formatter = logging.Formatter("%(asctime)s : %(levelname)s : %(name)s : %(message)s")
 
-filehandler = logging.FileHandler('routers.log')
+filehandler = logging.FileHandler('services.log')
 filehandler.setFormatter(formatter)
 
 logger.addHandler(filehandler)
