@@ -29,7 +29,8 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+        logging.exception("Failed to perform date matching to ISO8601 format")
     return False
 
 
