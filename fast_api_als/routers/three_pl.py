@@ -21,6 +21,7 @@ file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
 
+logging.info("reset_authkey initiated")
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
@@ -35,6 +36,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
     }
+logging.info("reset_authkey completed")
 
 
 @router.post("/view_authkey")
