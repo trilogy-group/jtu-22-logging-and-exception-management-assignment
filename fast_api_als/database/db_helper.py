@@ -1,3 +1,4 @@
+import http
 import uuid
 import logging
 import time
@@ -16,6 +17,15 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+def logHTTP(responseCode, op):
+    responseCode=str(responseCode)
+    message = f'self.table.{op} ended with response code {responseCode}.'
+    if responseCode[0]==2 or responseCode[0]==1 :
+        logging.info(message)
+    elif responseCode[0]==3:
+        logging.warning(message)
+    else:
+        logging.error(message)
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -39,6 +49,8 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
+        
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +77,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,6 +86,7 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'get_item')
         item = res.get('Item')
         if not item:
             return {
@@ -95,7 +109,7 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
         )
-
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         return res.get('Items', [])
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
@@ -104,11 +118,13 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'get_item')
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +134,7 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'get_item')
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,6 +144,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -136,6 +154,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         item = res['Items']
         if len(item) == 0:
             return None
@@ -151,12 +170,14 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         item = res.get('Items', [])
         if len(item):
             return None
@@ -166,6 +187,7 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -174,6 +196,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'get_item')
         if 'Item' not in res:
             return {}
         if parallel:
@@ -194,6 +217,7 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +226,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'delete_item')
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +237,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'delete_item')
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -221,6 +247,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -288,6 +315,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -295,12 +323,14 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
             if len(res['Items']):
                 lead_exist = True
         return lead_exist
@@ -310,10 +340,14 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        res=email_attached_leads
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
+        res=phone_attached_leads
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
 
         for item in customer_leads:
@@ -326,6 +360,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
@@ -335,6 +370,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'query')
         items = res.get('Items')
         if len(items) == 0:
             return False, {}
@@ -343,14 +379,15 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
+        logHTTP(res['ResponseMetadata']['HTTPStatusCode'],'put_item')
         return True, item
 
 
 def verify_response(response_code):
     if not response_code == 200:
-        pass
+        logging.info("The request succeeded.")
     else:
-        pass
+        logging.info(f'Request ended with response code {response_code}')
 
 
 session = get_boto3_session()
