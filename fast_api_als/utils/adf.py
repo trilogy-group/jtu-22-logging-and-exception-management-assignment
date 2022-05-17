@@ -4,6 +4,7 @@ from logging import *
 from uszipcode import SearchEngine
 import re
 
+basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{asctime} || {message}")
 
 
 # ISO8601 datetime regex
