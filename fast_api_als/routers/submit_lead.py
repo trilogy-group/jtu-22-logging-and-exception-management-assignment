@@ -23,6 +23,19 @@ from fast_api_als.utils.sqs_utils import sqs_helper_session
 
 router = APIRouter()
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s %(levelname)s-%(message)s')
+
+file_handler = logging.FileHandler('logs.log')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+
+logger.error('Its ready')
+
+
 """
 Add proper logging and exception handling.
 
@@ -35,16 +48,15 @@ you will get the idea about the part when you go through the code.
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     start = int(time.time() * 1000.0)
     t1 = [int(time.time() * 1000.0)]
-    
+    logger.info('request received for a vehicle')
     if not db_helper_session.verify_api_key(apikey):
-        # throw proper fastpi.HTTPException
         pass
     
     body = await file.body()
     body = str(body, 'utf-8')
 
     obj = parse_xml(body)
-
+    logger.info('parsed xml object received')
     # check if xml was not parsable, if not return
     if not obj:
         provider = db_helper_session.get_api_key_author(apikey)
@@ -55,6 +67,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logger.info('xml file not parsable')
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -82,6 +95,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
 
+    logger.info('Checked if vendor is available here or not')
 
     fetched_oem_data = {}
 
@@ -130,15 +144,19 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
 
+    logger.info('search for dealer finished')
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
 
+    logger.info('lead data enriched')
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
+    logger.info('enriched data converted to appropriate ml input')
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
 
+    logger.info(f"The lead is scored {result}")
     # create the response
     response_body = {}
     if result >= oem_threshold:
@@ -148,6 +166,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
+    logger.info('The response has been created')
     # verify the customer
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
@@ -196,6 +215,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
+        logger.info('Customer details sent to the lead dealer')
         res = sqs_helper_session.send_message(message)
 
     else:
@@ -214,5 +234,5 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
-
+    logger.info('submit request processed successfully')
     return response_body

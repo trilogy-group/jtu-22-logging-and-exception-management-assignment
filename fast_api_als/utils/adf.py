@@ -4,6 +4,15 @@ import logging
 from uszipcode import SearchEngine
 import re
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s %(levelname)s-%(message)s')
+
+file_handler = logging.FileHandler('logs.log')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 
 
 # ISO8601 datetime regex
@@ -36,11 +45,23 @@ def validate_iso8601(requestdate):
 def is_nan(x):
     return x != x
 
+def parsefile(file):
+    parser = make_parser(  )
+    parser.setContentHandler(ContentHandler(  ))
+    parser.parse(file)
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        parsefile(adf_xml)
+    except Exception as e:
+        print (f"adf_xml is NOT well-formed! {e}")
+        logger.error('XML file not well-formed')
+        obj = None
+        return obj
+    else:
+        obj = xmltodict.parse(adf_xml)
+        return obj
 
 
 def validate_adf_values(input_json):
@@ -65,12 +86,14 @@ def validate_adf_values(input_json):
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
+    logger.info(f"Zipcode varification for code - {zipcode}")
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
     tcpa_consent = False
+    logger.info('Checking for TCPA consent')
     for id in input_json['id']:
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
@@ -92,8 +115,10 @@ def check_validation(input_json):
             schema=schema,
             format_checker=draft7_format_checker,
         )
+        logger.debug(input_json)
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
+            logger.error(response['message'])
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
