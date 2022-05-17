@@ -13,15 +13,18 @@ zipcode_search = SearchEngine()
 
 
 def process_before_validating(input_json):
-    if isinstance(input_json['adf']['prospect']['id'], dict):
-        input_json['adf']['prospect']['id'] = [input_json['adf']['prospect']['id']]
-    if isinstance(input_json['adf']['prospect']['customer']['contact'].get('email', {}), str):
-        input_json['adf']['prospect']['customer']['contact']['email'] = {
-            '@preferredcontact': '0',
-            '#text': input_json['adf']['prospect']['customer']['contact']['email']
-        }
-    if isinstance(input_json['adf']['prospect']['vehicle'].get('price', []), dict):
-        input_json['adf']['prospect']['vehicle']['price'] = [input_json['adf']['prospect']['vehicle']['price']]
+    try:
+        if isinstance(input_json['adf']['prospect']['id'], dict):
+            input_json['adf']['prospect']['id'] = [input_json['adf']['prospect']['id']]
+        if isinstance(input_json['adf']['prospect']['customer']['contact'].get('email', {}), str):
+            input_json['adf']['prospect']['customer']['contact']['email'] = {
+                '@preferredcontact': '0',
+                '#text': input_json['adf']['prospect']['customer']['contact']['email']
+            }
+        if isinstance(input_json['adf']['prospect']['vehicle'].get('price', []), dict):
+            input_json['adf']['prospect']['vehicle']['price'] = [input_json['adf']['prospect']['vehicle']['price']]
+    except:
+        logging.error("Unable to process before validating.")
 
 
 def validate_iso8601(requestdate):
@@ -29,7 +32,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logging.error("unable to validate.")
     return False
 
 
@@ -39,7 +42,10 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    try:
+        obj = xmltodict.parse(adf_xml)
+    except:
+        logging.error("adf_xml could be parsed.")
     return obj
 
 
@@ -97,5 +103,5 @@ def check_validation(input_json):
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
