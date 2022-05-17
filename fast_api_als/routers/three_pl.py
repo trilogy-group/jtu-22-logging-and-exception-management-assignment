@@ -28,17 +28,19 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
+        raise HTTPException(status_code=401, detail="Unauthorized assigning of role")
         pass
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.set_auth_key(username=provider)
+    logging.info("reset_authkey completed")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
     }
-logging.info("reset_authkey completed")
 
 
+logging.info("view_authkey initiated")
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
@@ -50,6 +52,7 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.get_auth_key(username=provider)
+    logging.info("view_authkey completed")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
