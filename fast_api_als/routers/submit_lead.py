@@ -1,9 +1,7 @@
-import time
-import uuid
-import logging
+import time,uuid,logging
 
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request, Depends
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,20 +31,30 @@ you will get the idea about the part when you go through the code.
 
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
+    logging.info("Submit request started.")
     start = int(time.time() * 1000.0)
-    t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
-        # throw proper fastpi.HTTPException
-        pass
+        logging.error("Unable to Verify API key.")
+        raise HTTPException(status_code = 401, detail="API key could not be verified")
     
+    t1 = int(time.time()*1000)
+    logging.info("Getting data")
     body = await file.body()
+    t2 = int(time.time()*1000)
+    logging.info(f'data Fetched in {t1-t2} ms.')
+
     body = str(body, 'utf-8')
 
+    t1 = int(time.time()*1000)
+    logging.info("Parsing xml")
     obj = parse_xml(body)
+    t2 = int(time.time()*1000)
+    logging.info(f'Parsed xml(if parsable) in {t2-t1} ms.')
 
     # check if xml was not parsable, if not return
     if not obj:
+        logging.error("Cannot parse xml.")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -55,21 +63,30 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logging.info("Added info about rejected xml in database.")
+        logging.info("Submit request ended.")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
     
+    t1 = int(time.time()*1000)
+    logging.info("Calculating lead_hash")
     lead_hash = calculate_lead_hash(obj)
+    t2 = int(time.time()*1000)
+    logging.info(f'Calculated lead_hash in {t2-t1} ms.')
 
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
 
     #if not valid return
     if not validation_check:
+        logging.error("Validation check for adf xml failed.")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logging.info("Added info about failed validation in database.")
+        logging.info("Submit request ended.")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -78,11 +95,19 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if vendor is available here
     dealer_available = True if obj['adf']['prospect'].get('vendor', None) else False
+    
     email, phone, last_name = get_contact_details(obj)
+    if not email:
+        logging.warning("Email not found")
+    
+    if not phone:
+        logging.warning("phone number not found")
+    
+    if not last_name:
+        logging.warning("last_name not found")
+
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
-
-
     fetched_oem_data = {}
 
     # check if 3PL is making a duplicate call or it is a duplicate lead
@@ -95,11 +120,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                logging.error("Duplicate api call.")
+                logging.info("Submit request ended.")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logging.error("Duplicate lead.")
+                logging.info("Submit request ended.")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -108,12 +137,16 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logging.error("OEM data not found.")
+        logging.info("Submit request ended.")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logging.error("No threshold in OEM data.")
+        logging.info("Submit request ended.")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -123,6 +156,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logging.info("Dealer not available, finding nearest dealer.")
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
@@ -131,27 +165,44 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         dealer_available = True if nearest_vendor != {} else False
 
     # enrich the lead
+    logging.info("Enriching the lead.")
+    t1 = int(time.time()*1000)
     model_input = get_enriched_lead_json(obj)
+    t2 = int(time.time()*1000)
+    logging.info(f'Lead enriched in {t2-t1} ms.')
 
     # convert the enriched lead to ML input format
+    logging.info("Convertin to ml input.")
+    t1 = int(time.time()*1000)
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
+    t2 = int(time.time()*1000)
+    logging.info(f'Converted the lead to ml input in {t2-t1} ms.')
+
 
     # score the lead
+    logging.info("Caclulating score.")
+    t1 = int(time.time()*1000)
     result = score_ml_input(ml_input, make, dealer_available)
+    t2 = int(time.time()*1000)
+    logging.info(f'Calculated Score in {t2-t1} ms.')
 
     # create the response
     response_body = {}
     if result >= oem_threshold:
+        logging.info("Customer accepted by model.")
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
     else:
+        logging.info("Customer rejected by model.")
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
     # verify the customer
     if response_body['status'] == 'ACCEPTED':
+        logging.info("Verifying Customer.")
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logging.info("Customer Verification failed")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -214,5 +265,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
-
+    logging.info(response_message)
+    logging.info("Response ended")
     return response_body
