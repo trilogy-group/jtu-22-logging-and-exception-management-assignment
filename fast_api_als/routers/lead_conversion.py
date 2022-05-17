@@ -52,6 +52,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
         body = json.loads(str(body, 'utf-8'))
     except:
         logging.error("Unable to load data")
+        raise HTTPException(status_code=500, detail="Unable to load data")
 
     if 'lead_uuid' not in body or 'converted' not in body:
         logging.error("lead_uuid or converted are not available.")
