@@ -73,6 +73,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logger.info("submit function completed")
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
@@ -80,4 +81,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
     else:
         raise HTTPException(status_code=404, detail="Not Found")
         pass
-logger.info("submit function completed")
+
