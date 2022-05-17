@@ -1,19 +1,16 @@
 import time
 import httpx
 import asyncio
-import logging
+from fast_api_als.utils.base_logger import logger
 from fast_api_als.constants import (
     ALS_DATA_TOOL_EMAIL_VERIFY_METHOD,
     ALS_DATA_TOOL_PHONE_VERIFY_METHOD,
     ALS_DATA_TOOL_SERVICE_URL,
     ALS_DATA_TOOL_REQUEST_KEY)
 
-"""
-How can you write log to understand what's happening in the code?
-You also trying to undderstand the execution time factor.
-"""
 
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
+    start_time = time.time()
     if value == '':
         return
     async with httpx.AsyncClient() as client:  # 3
@@ -21,9 +18,12 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
 
     r = response.json()
     data[topic] = r
-    
+    time_taken = int((time.time() - start_time) * 1000)
+    logger.info(f"Validated {topic} - {value} in {time_taken}ms")
+
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
+    start_time = time.time()
     email_validation_url = '{}?Method={}&RequestKey={}&EmailAddress={}&OutputFormat=json'.format(
         ALS_DATA_TOOL_SERVICE_URL,
         ALS_DATA_TOOL_EMAIL_VERIFY_METHOD,
@@ -48,4 +48,6 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+    time_taken = int((time.time() - start_time) * 1000)
+    logger.info(f"Phone {phone_number} verified = {phone_valid}, email {email} verified = {email_valid} in {time_taken}ms")
     return email_valid | phone_valid
