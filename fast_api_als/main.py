@@ -1,4 +1,5 @@
 import time
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logging.basicConfig(filename='all_logs.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 
 @app.get("/")
 def root():
@@ -35,4 +37,5 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
+    logging.info(f"Respong time - {time_taken} ms")
     return {f"Pong with response time {time_taken} ms"}
