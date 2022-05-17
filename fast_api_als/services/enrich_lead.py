@@ -9,7 +9,7 @@ from fast_api_als import constants
 """
 what exceptions can be thrown here?
 """
-
+logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
 
 def get_enriched_lead_json(adf_json: dict) -> dict:
     # pass

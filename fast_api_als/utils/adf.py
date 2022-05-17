@@ -4,7 +4,7 @@ import logging
 from uszipcode import SearchEngine
 import re
 
-
+logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -26,10 +26,11 @@ def process_before_validating(input_json):
 
 def validate_iso8601(requestdate):
     try:
+        logging.info("Validating ISO8601 Request Date")
         if match_iso8601(requestdate) is not None:
             return True
-    except:
-        pass
+    except Exception as e:
+        logging.error(f"Request Date {requestdate} Iso8601 Validation failed:  {e.message} ")
     return False
 
 
@@ -39,8 +40,14 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        logging.info("Parsing adf xml")
+        obj = xmltodict.parse(adf_xml)
+        logging.info("Parse Successful")
+        return obj
+    except Exception as e:
+        logging.error(f"Parse failed: {e.message}")
+        raise Exception("Parsing Error")
 
 
 def validate_adf_values(input_json):
@@ -59,26 +66,34 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logging.info("Incomplete name adf validation rejected")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logging.info("Phone or email missing adf validation rejected")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        logging.info(f"Invalid Postal code - {zipcode} adf validation rejected")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
+    logging.info("Checking TCPA Consent")
     tcpa_consent = False
     for id in input_json['id']:
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
+
     if not email and not tcpa_consent:
+        logging.info("Missing TCPA Consent adf validation rejected")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        requestdate = input_json['requestdate']
+        logging.info(f"Invalid Datetime - {requestdate} adf validation rejected")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
     return {"status": "OK"}
@@ -86,16 +101,20 @@ def validate_adf_values(input_json):
 
 def check_validation(input_json):
     try:
+        logging.info("Processing json before validating")
         process_before_validating(input_json)
+        logging.info("Validating schema")
         validate(
             instance=input_json,
             schema=schema,
             format_checker=draft7_format_checker,
         )
+        logging.info("Validating adf values")
         response = validate_adf_values(input_json)
+        logging.info("Validation finished")
         if response['status'] == "REJECTED":
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
