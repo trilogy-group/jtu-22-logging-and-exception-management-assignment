@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-formatter = logging.Formatter("%(levelname)s : %(name)s : %(message)s")
+formatter = logging.Formatter("%(asctime)s : %(levelname)s : %(name)s : %(message)s")
 
 filehandler = logging.FileHandler('db.log')
 filehandler.setFormatter(formatter)
