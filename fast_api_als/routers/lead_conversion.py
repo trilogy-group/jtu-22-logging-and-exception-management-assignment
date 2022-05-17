@@ -17,6 +17,8 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -42,29 +44,50 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
-    body = await file.body()
-    body = json.loads(str(body, 'utf-8'))
+    try:
+        start = int(time.time() * 1000.0)
+        logging.info("Lead Conversion Request")
+        body = await file.body()
+        body = json.loads(str(body, 'utf-8'))
 
-    if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
-        
-    lead_uuid = body['lead_uuid']
-    converted = body['converted']
+        logging.info("Checking required parameters in body")
+        if 'lead_uuid' not in body or 'converted' not in body:
+            # throw proper HTTPException
+            logging.info("Parameters Missing: Conversion Request Terminated")
+            raise HTTPException(status_code=400, detail="Required Parameters Missing")
+            # pass
+            
+        lead_uuid = body['lead_uuid']
+        converted = body['converted']
 
-    oem, role = get_user_role(token)
-    if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.info("Checking Required permissions")
+        oem, role = get_user_role(token)
+        if role != "OEM":
+            # throw proper HTTPException
+            time_taken = int(time.time() * 1000.0) - start
+            logging.info(f"Permissions Missing: Conversion Request Terminated in {time_taken}ms")
+            raise HTTPException(status_code=403, detail="You do not have required permission")
+            # pass
 
-    is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
-    if is_updated:
-        data, path = get_quicksight_data(lead_uuid, item)
-        s3_helper_client.put_file(data, path)
-        return {
-            "status_code": status.HTTP_200_OK,
-            "message": "Lead Conversion Status Update"
-        }
-    else:
-        # throw proper HTTPException
-        pass
+        logging.info("Updating Conversion Lead")
+        is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
+        if is_updated:
+            logging.info("Getting QuickSight Data")
+            data, path = get_quicksight_data(lead_uuid, item)
+            logging.info("Uploading Conversion data on S3")
+            s3_helper_client.put_file(data, path)
+            time_taken = int(time.time() * 1000.0) - start
+            logging.info(f"Conversion Lead with lead uuid {lead_uuid} Updation Successful in {time_taken}ms")
+            return {
+                "status_code": status.HTTP_200_OK,
+                "message": "Lead Conversion Status Update"
+            }
+        else:
+            # throw proper HTTPException
+            time_taken = int(time.time() * 1000.0) - start
+            logging.info(f"Conversion Lead with lead uuid {lead_uuid} Already Updated : Conversion Request Terminated in {time_taken}ms")
+            raise HTTPException(status_code=400, detail="Conversion Lead was already updated")
+            # pass
+    except as e:
+        logging.error(f"Conversion Request Failed: {e.message}")
+        raise HTTPException(status_code=500, detail="Something Went Wrong")
