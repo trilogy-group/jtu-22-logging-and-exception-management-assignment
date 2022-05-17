@@ -24,6 +24,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
+    start_time = time.process_time()
     email_validation_url = '{}?Method={}&RequestKey={}&EmailAddress={}&OutputFormat=json'.format(
         ALS_DATA_TOOL_SERVICE_URL,
         ALS_DATA_TOOL_EMAIL_VERIFY_METHOD,
@@ -48,4 +49,11 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+
+    if not email_valid or not phone_valid:
+        logging.error("Verifying Email : %s  Phone : %s Email valid : %s  Phone valid : %s", email, phone, email_valid, phone_valid)
+    else:
+        logging.info("Verifying Email : %s  Phone : %s Email valid : %s  Phone valid : %s", email, phone, email_valid, phone_valid)
+    logging.info("Time taken for verification: %fms",time.process_time()-start_time)
+    
     return email_valid | phone_valid
