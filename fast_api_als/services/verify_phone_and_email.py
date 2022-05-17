@@ -54,6 +54,6 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
         logging.error("Verifying Email : %s  Phone : %s Email valid : %s  Phone valid : %s", email, phone, email_valid, phone_valid)
     else:
         logging.info("Verifying Email : %s  Phone : %s Email valid : %s  Phone valid : %s", email, phone, email_valid, phone_valid)
-    logging.info("Time taken for verification: %fms",time.process_time()-start_time)
-    
+    logging.info("Time taken for verification: %fms",(time.process_time()-start_time)*1000)
+
     return email_valid | phone_valid
