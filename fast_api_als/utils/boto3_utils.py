@@ -2,7 +2,7 @@ import logging
 
 logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s')
 
-def get_user_details():
+def get_boto3_session():
     '''
     This Dummy Function returns boto3 session
     '''
