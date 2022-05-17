@@ -79,6 +79,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logger.info(f'post request accepted for /conversion')
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
@@ -89,4 +90,3 @@ async def submit(file: Request, token: str = Depends(get_token)):
         raise HTTPException(status_code=404, detail='data not found for lead conversion status update') 
         pass
 
-    logger.info(f'post request accepted for /conversion')
