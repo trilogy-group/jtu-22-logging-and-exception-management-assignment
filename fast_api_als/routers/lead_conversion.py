@@ -1,7 +1,18 @@
+from http.client import HTTPException
 import json
 from fastapi import APIRouter, Depends
 import logging
 import time
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter("%(levelname)s : %(name)s : %(message)s")
+
+filehandler = logging.FileHandler('routers.log')
+filehandler.setFormatter(formatter)
+
+logger.addHandler(filehandler)
 
 from fastapi import Request
 from starlette import status
@@ -26,6 +37,8 @@ def get_quicksight_data(lead_uuid, item):
             Returns:
                 S3 data
     """
+    logger.info('Starting conversion of data for dumping into S3')
+
     data = {
         "lead_hash": lead_uuid,
         "epoch_timestamp": int(time.time()),
@@ -37,6 +50,9 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+
+    logger.info('Finisned data conversion')
+
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -45,9 +61,11 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
 
+    logger.info("Initiated request submission for /converison")
+
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=400, detail='lead-uuid not found or converted not found')
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -55,16 +73,19 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=401, detail='Unauthorized request')
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+
+        logger.info("Request submitted for /conversion")
+
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
     else:
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=404, detail='Data not found')
