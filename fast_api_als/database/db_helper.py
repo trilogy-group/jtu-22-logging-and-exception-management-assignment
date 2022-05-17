@@ -344,6 +344,10 @@ class DBHelper:
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
         return True, item
+    
+    def log_response_code(res):
+        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+        logging.info(f"Response code = {res['ResponseMetadata']['HTTPStatusCode']}, {res['ResponseMetadata']}")
 
 
 def verify_response(response_code):
