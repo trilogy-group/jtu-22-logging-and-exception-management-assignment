@@ -56,7 +56,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
+        raise HTTPException(status_code=400, detail="Bad Request: Lead_uuid not in body or Converted not in body")
         pass
         
     lead_uuid = body['lead_uuid']
