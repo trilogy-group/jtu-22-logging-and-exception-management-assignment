@@ -67,5 +67,5 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     else logger.error("Phone not verified")
     end=int(time.time()*1000.0)
     logger.info("verify_phone_and_email completed")
-    logger.info("Execution time is:{end-start}")
+    logger.info(f"Execution time is:{end-start}")
     return email_valid | phone_valid
