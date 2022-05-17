@@ -1,3 +1,6 @@
+import logging
+
+
 def get_user_role(token):
     '''
     [Dummy function]
@@ -12,4 +15,5 @@ def get_user_role(token):
     elif token == '1':
         return '3PL'
     else:
+        logging.error('Invalid token')
         raise Exception('Invalid token')
