@@ -12,4 +12,7 @@ what exceptions can be thrown here?
 
 
 def get_enriched_lead_json(adf_json: dict) -> dict:
+
+    # Check if adf_json is valid and throw an error if not
+    # Check if adf_json has all the required properties 
     pass
