@@ -54,6 +54,8 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
+
+    start = int(time.time() * 1000.0)
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
 
@@ -78,12 +80,16 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        now = int(time.time() * 1000.0)
+        logging.info(f'[Lead Conversion]: Completed in {now - start}ms')
+
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
     else:
+        now = int(time.time() * 1000.0)
         logging.error(
-            "[Lead Conversion]: Unable to update lead conversation")
+            f"[Lead Conversion]: Unable to update lead conversation, time taken: {now - start}ms")
         raise HTTPException(
             status_code=500, detail="Unable to update lead conversation")
