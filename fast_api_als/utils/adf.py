@@ -3,6 +3,7 @@ from jsonschema import validate, draft7_format_checker
 import logging
 from uszipcode import SearchEngine
 import re
+from fastapi import HTTPException
 
 
 
@@ -39,9 +40,13 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    try:
+        obj = xmltodict.parse(adf_xml)
+        logging.info("fn parse_xml : Parsing done")
+    except Exception as e:
+        logging.error(f"Parsing xml failed: {e.message}")
+        raise Exception(f"Parsing xml failed: {e.message}")
     return obj
-
 
 def validate_adf_values(input_json):
     input_json = input_json['adf']['prospect']
@@ -97,5 +102,5 @@ def check_validation(input_json):
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
