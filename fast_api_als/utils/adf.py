@@ -43,6 +43,8 @@ def parse_xml(adf_xml):
     try
         obj = xmltodict.parse(adf_xml)
     except: 
+        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+        logging.exception("Parsing Exception occured while parsing adf_xml")
         obj = None
     return obj
 
