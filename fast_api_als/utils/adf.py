@@ -18,6 +18,9 @@ logger.addHandler(file_handler)
 class notMatchediso6801(Exception):
     pass
 
+class parse_xml_failed(Exception):
+    pass
+
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
 match_iso8601 = re.compile(regex).match
@@ -55,9 +58,14 @@ def is_nan(x):
 def parse_xml(adf_xml):
     # use exception handling
     obj = xmltodict.parse(adf_xml)
+    try:
+        if obj==None:
+            raise parse_xml_failed
+    except parse_xml_failed:
+        logger.error(f"adf_xml-{adf_xml} couldn't be parsed")
     return obj
 
-
+logger.info("validate_adf_values initiated")
 def validate_adf_values(input_json):
     input_json = input_json['adf']['prospect']
     zipcode = input_json['customer']['contact']['address']['postalcode']
@@ -74,14 +82,17 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logger.error("Name is incomplete")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logger.error("Either phone or email is required")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        logger.error("Invalid Postal Code")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -89,13 +100,18 @@ def validate_adf_values(input_json):
     for id in input_json['id']:
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
+    if(tcpa_consent==True) logger.info("tcpa_consent is true")
+    else logger.info("tcpa_consent is false") 
     if not email and not tcpa_consent:
+        logger.error("Contact Method missing TCPA consent")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logger.error("Invalid DateTime")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
+    logger.info("validation_adf_values completed")
     return {"status": "OK"}
 
 
@@ -109,7 +125,9 @@ def check_validation(input_json):
         )
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
+            logger.info("Response status is rejected")
             return False, response['code'], response['message']
+        logger.info("Input Validated")
         return True, "input validated", "validation_ok"
     except Exception as e:
         logger.error(f"Validation failed: {e.message}")
