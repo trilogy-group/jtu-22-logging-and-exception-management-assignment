@@ -48,6 +48,7 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
+        raise HTTPException(status_code=401, detail="Unauthorized assigning of role")
         pass
     if role == "ADMIN":
         provider = body['3pl']
