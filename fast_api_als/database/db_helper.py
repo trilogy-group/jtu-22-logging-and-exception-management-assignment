@@ -21,6 +21,7 @@ logging.basicConfig(filename = 'logs.log' , level = logging.INFO , format = '%(a
 def HTTPStatusCode_Log(res) : 
     logging.debug('HTTPStatusCode : {}'.format(res['ResponseMetadata']['HTTPStatusCode']))
 
+logging.info('New session started or file switched.')
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -43,7 +44,19 @@ class DBHelper:
             'response': response,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
-        res = self.table.put_item(Item=item)
+
+        logging.info('Inserting lead...')
+
+        try:
+            res = self.table.put_item(Item=item)
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+
+            
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
