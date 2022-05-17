@@ -35,9 +35,12 @@ you will get the idea about the part when you go through the code.
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     start = int(time.time() * 1000.0)
     t1 = [int(time.time() * 1000.0)]
+
+    logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
+        logging.error('Authentication Failed: Wrong API key')
         raise HTTPException(status_code=401, detail="Authentication Failed: Wrong API key")
     
     body = await file.body()
@@ -61,10 +64,18 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "message": "Error occured while parsing XML"
         }
     
+    t1.append(int(time.time() * 1000.0))
+    time_taken = t1[-1] - t1[-2]
+    logging.info(f'Parsing Time : {time_taken}')
+    
     lead_hash = calculate_lead_hash(obj)
 
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
+
+    t1.append(int(time.time() * 1000.0))
+    time_taken = t1[-1] - t1[-2]
+    logging.info(f'XML validation Time : {time_taken')
 
     #if not valid return
     if not validation_check:
@@ -129,15 +140,29 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                                                                 lon=lon)
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
+    
+    t1.append(int(time.time() * 1000.0))
 
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
 
+    t1.append(int(time.time() * 1000.0))
+    time_taken = t1[-1] - t1[-2]
+    logging.info(f'Lead enriching Time : {time_taken')
+
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
+    t1.append(int(time.time() * 1000.0))
+    time_taken = t1[-1] - t1[-2]
+    logging.info(f'Enriched lead to ML input format conversion Time : {time_taken')
+
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
+
+    t1.append(int(time.time() * 1000.0))
+    time_taken = t1[-1] - t1[-2]
+    logging.info(f'Lead scoring Time : {time_taken')
 
     # create the response
     response_body = {}
