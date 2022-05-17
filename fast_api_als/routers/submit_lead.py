@@ -98,7 +98,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # check if vendor is available here
     dealer_available = True if obj['adf']['prospect'].get('vendor', None) else False
     if(dealer_available==True) logger.info("vendor is avilable")
-    else logger.error("Vendor not available")
+    else logger.info("Vendor not available")
     email, phone, last_name = get_contact_details(obj)
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
@@ -157,7 +157,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
         if(dealer_available==True) logger.info("dealer is available and nearest neighbour found")
-        else logger.error("dealer is not available") 
+        else logger.info("dealer is not available") 
 
     end=int(time.time()*1000.0)
     logger.info("The execution time is:{end-start}")
@@ -192,7 +192,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         if not contact_verified:
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
-            logger.error("customer not verified")
+            logger.info("customer not verified")
     if(response_body['status']=='ACCEPTED') logger.info('customer is verified')
 
     lead_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, email + phone + last_name + make + model))

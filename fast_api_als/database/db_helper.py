@@ -53,15 +53,15 @@ class DBHelper:
             'model': model,
             'email': email,
             'phone': phone,
-            'last_name': last_name,
-            'timestamp': timestamp,
-            'conversion': "0",
-            "make_model_filter_status": make_model_filter_status,
-            "lead_hash": lead_hash,
-            "dealer": dealer,
-            "3pl": provider,
-            "postalcode": postalcode,
-            'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
+            'last_name': last_name
+            'timestamp': timestamp
+            'conversion': "0"
+            "make_model_filter_staus": make_model_filter_status,
+            "lead_hash": lead_hash
+            "dealer": dealer
+            "3pl": provider
+            "postalcode": postalcoe,
+            'ttl': datetime.fromtiestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
 
         res = self.table.put_item(Item=item)
