@@ -38,7 +38,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
             "status_code": HTTP_200_OK,
             "x-api-key": apikey
         }
-    except as e:
+    except Exception as e:
         logging.error(f"AuthKey Reset Failed: {e.message}")
         raise HTTPException(status_code=500,detail="Something Went Wrong")
 
@@ -70,6 +70,6 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
             "status_code": HTTP_200_OK,
             "x-api-key": apikey
         }
-    except as e:
+    except Exception as e:
         logging.error(f"AuthKey View Request Failed: {e.message}")
         raise HTTPException(status_code=500,detail="Something Went Wrong")

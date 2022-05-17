@@ -19,5 +19,5 @@ def get_enriched_lead_json(adf_json: dict) -> dict:
 
     try:
         key = adf_json['key']
-    except as e:
+    except Exception as e:
         logging.error("Get Enriched Lead failed: {e.message}")

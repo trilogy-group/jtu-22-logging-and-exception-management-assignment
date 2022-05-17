@@ -5,6 +5,7 @@ import time
 
 from fastapi import Request
 from starlette import status
+from fastapi import HTTPException
 
 from fast_api_als.database.db_helper import db_helper_session
 from fast_api_als.quicksight.s3_helper import s3_helper_client
@@ -88,6 +89,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
             logging.info(f"Conversion Lead with lead uuid {lead_uuid} Already Updated : Conversion Request Terminated in {time_taken}ms")
             raise HTTPException(status_code=400, detail="Conversion Lead was already updated")
             # pass
-    except as e:
+    except Exception as e:
         logging.error(f"Conversion Request Failed: {e.message}")
         raise HTTPException(status_code=500, detail="Something Went Wrong")
