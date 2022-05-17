@@ -17,7 +17,9 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
-        pass
+        raise HTTPException(
+            status_code=401, detail="Unauthorized to reset auth key")
+
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.set_auth_key(username=provider)
@@ -34,7 +36,9 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
-        pass
+        raise HTTPException(
+            status_code=401, detail="Unauthorized to reset auth key")
+
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.get_auth_key(username=provider)
