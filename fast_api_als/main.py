@@ -35,4 +35,5 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
+    info("time taken by ping " + time taken)
     return {f"Pong with response time {time_taken} ms"}

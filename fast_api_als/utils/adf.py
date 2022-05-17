@@ -1,6 +1,6 @@
 import xmltodict
 from jsonschema import validate, draft7_format_checker
-import logging
+from logging import *
 from uszipcode import SearchEngine
 import re
 
@@ -13,6 +13,7 @@ zipcode_search = SearchEngine()
 
 
 def process_before_validating(input_json):
+    start = int(time.time() * 1000.0)
     if isinstance(input_json['adf']['prospect']['id'], dict):
         input_json['adf']['prospect']['id'] = [input_json['adf']['prospect']['id']]
     if isinstance(input_json['adf']['prospect']['customer']['contact'].get('email', {}), str):
@@ -22,14 +23,20 @@ def process_before_validating(input_json):
         }
     if isinstance(input_json['adf']['prospect']['vehicle'].get('price', []), dict):
         input_json['adf']['prospect']['vehicle']['price'] = [input_json['adf']['prospect']['vehicle']['price']]
+    
+    info("time taken to process before validating " + int(time.time() * 1000.0) - start)
 
 
 def validate_iso8601(requestdate):
     try:
         if match_iso8601(requestdate) is not None:
+            info("validating iso True")
             return True
+
     except:
         pass
+
+    info("validating iso false")
     return False
 
 
@@ -39,7 +46,12 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    try:
+        obj = xmltodict.parse(adf_xml)
+        info(" successfully prase xml file")
+    except Exception as e:
+        error("Unable to parse xml file" + e)
+        raise Exception('Unable to parse adf xml')
     return obj
 
 
@@ -57,16 +69,21 @@ def validate_adf_values(input_json):
             first_name = True
         if name_part.get('@part', '') == 'last' and name_part.get('#text', '') != '':
             last_name = True
+        
 
     if not first_name or not last_name:
+        info("validation rejected due to first or last name field is empty")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        info("validation rejected due to email or phone field is empty")
+
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        info("validation rejected due to invalid postal code")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -75,12 +92,16 @@ def validate_adf_values(input_json):
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
     if not email and not tcpa_consent:
+        info("validation rejected due to Contact Method missing TCPA consent")
+
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        info(("validation rejected due to invalid datetime")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
+    info("adf values validation ok")
     return {"status": "OK"}
 
 
@@ -95,6 +116,7 @@ def check_validation(input_json):
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
             return False, response['code'], response['message']
+            info("check_validation of json file failed")
         return True, "input validated", "validation_ok"
     except Exception as e:
         logger.error(f"Validation failed: {e.message}")
