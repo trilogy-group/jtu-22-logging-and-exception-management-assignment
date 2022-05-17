@@ -64,7 +64,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
+        raise HTTPException(status_code=401, detail="Unauthorized")
         pass
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
