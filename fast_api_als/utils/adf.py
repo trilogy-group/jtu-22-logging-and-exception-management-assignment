@@ -42,7 +42,7 @@ def parse_xml(adf_xml):
         obj = xmltodict.parse(adf_xml)
     except Exception as e:
         logging.error(f'Unable to parse adf xml, {e}')
-        raise Exception('Unable to parse adf xml')
+        raise Exception(f'Unable to parse adf xml, {e}')
     return obj
 
 
@@ -100,5 +100,5 @@ def check_validation(input_json):
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
