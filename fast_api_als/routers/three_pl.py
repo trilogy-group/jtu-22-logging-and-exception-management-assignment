@@ -10,11 +10,14 @@ from starlette.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 
 router = APIRouter()
 
+logging.basicConfig(filename='test.log', level=logging.DEBUG,
+format='%(asctime)s:%(levelname)s:%(message)s')
 
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
     body = json.loads(body)
+    logging.
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
         pass
@@ -30,6 +33,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
+    logging.debug()
     body = json.loads(body)
     provider, role = get_user_role(token)
 
