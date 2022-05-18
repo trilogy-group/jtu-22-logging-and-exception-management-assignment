@@ -56,14 +56,15 @@ def is_nan(x):
 
 
 def parse_xml(adf_xml):
-    # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    # use exception handling  
     try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
         if obj==None:
             raise parse_xml_failed
     except parse_xml_failed:
         logger.error(f"adf_xml-{adf_xml} couldn't be parsed")
-    return obj
+        return None
 
 logger.info("validate_adf_values initiated")
 def validate_adf_values(input_json):
