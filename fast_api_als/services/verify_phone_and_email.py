@@ -64,13 +64,13 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
             logger.info("Email validated")
             email_valid = True
         else:
-            logger.info("Email not found")
+            logger.info("Email invalid")
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             logger.info("Phone validated")
             phone_valid = True
         else:
-            logger.info("Phone not found")
+            logger.info("Phone invalid")
     end = int(time.time() * 1000.0)
     logger.info(f"Email and phone validation completed: {end - start}ms")
     return email_valid | phone_valid
