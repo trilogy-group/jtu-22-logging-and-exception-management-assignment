@@ -44,7 +44,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
-        get_response_logger(res,insert_lead)
+        get_response_logger(res,"insert_lead")
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
                         postalcode: str):
@@ -70,7 +70,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
-        get_response_logger(res,insert_oem_lead)
+        get_response_logger(res,"insert_oem_lead")
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
             Key={
@@ -78,7 +78,7 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
-        get_response_logger(res,check_duplicate_api_call)
+        get_response_logger(res,"check_duplicate_api_call")
         item = res.get('Item')
         if not item:
             return {
@@ -101,7 +101,7 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
         )
-        get_response_logger(res,accepted_lead_not_sent_for_oem)
+        get_response_logger(res,"accepted_lead_not_sent_for_oem")
         return res.get('Items', [])
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
@@ -110,13 +110,13 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
-        get_response_logger(res,update_lead_sent_status)
+        get_response_logger(res,"update_lead_sent_status")
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
-        get_response_logger(res,update_lead_sent_status)
+        get_response_logger(res,"update_lead_sent_status")
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -126,7 +126,7 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
-        get_response_logger(res,get_make_model_filter_status)
+        get_response_logger(res,"get_make_model_filter_status")
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -136,7 +136,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
-        get_response_logger(res,verify_api_key)
+        get_response_logger(res,"verify_api_key")
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -146,7 +146,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
-        get_response_logger(res,get_auth_key)
+        get_response_logger(res,"get_auth_key")
         item = res['Items']
         if len(item) == 0:
             return None
@@ -162,14 +162,14 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
-        get_response_logger(res,get_auth_key)
+        get_response_logger(res,"get_auth_key")
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
-        get_response_logger(res,register_3PL)
+        get_response_logger(res,"register_3PL")
         item = res.get('Items', [])
         if len(item):
             return None
@@ -179,7 +179,7 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
-        get_response_logger(res,set_make_model_oem)
+        get_response_logger(res,"set_make_model_oem")
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
             Key={
@@ -187,7 +187,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
-        get_response_logger(res,fetch_oem_data)
+        get_response_logger(res,"fetch_oem_data")
         if 'Item' not in res:
             return {}
         if parallel:
@@ -208,7 +208,7 @@ class DBHelper:
                 'threshold': threshold
             }
         )
-        get_response_logger(res,create_new_oem)
+        get_response_logger(res,"create_new_oem")
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -217,7 +217,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
-        get_response_logger(res,delete_oem)
+        get_response_logger(res,"delete_oem")
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -228,7 +228,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
-            get_response_logger(res,delete_3PL)
+            get_response_logger(res,"delete_3PL")
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -238,7 +238,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
-        get_response_logger(res, set_oem_threshold)
+        get_response_logger(res, "set_oem_threshold")
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -306,21 +306,21 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
-        get_response_logger(res,insert_customer_lead)
+        get_response_logger(res,"insert_customer_lead")
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
         if self.get_make_model_filter_status(make):
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
-            get_response_logger(res,lead_exists)
+            get_response_logger(res,"lead_exists")
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
-            get_response_logger(res,lead_exists)
+            get_response_logger(res,"lead_exists")
             if len(res['Items']):
                 lead_exist = True
         return lead_exist
@@ -335,8 +335,8 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
-        get_response_logger(email_attached_leadsgit,check_duplicate_lead)
-        get_response_logger(phone_attached_leads,check_duplicate_lead)
+        get_response_logger(email_attached_leadsgit,"check_duplicate_lead")
+        get_response_logger(phone_attached_leads,"check_duplicate_lead")
         for item in customer_leads:
             if self.lead_exists(item['pk'], make, model):
                 return {"Duplicate_Lead": True}
@@ -347,7 +347,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
-        get_response_logger(res,get_api_key_author)
+        get_response_logger(res,"get_api_key_author")
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
@@ -357,7 +357,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
-        get_response_logger(res, update_lead_conversion)
+        get_response_logger(res, "update_lead_conversion")
         items = res.get('Items')
         if len(items) == 0:
             return False, {}
@@ -366,7 +366,7 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
-        get_response_logger(res,update_lead_conversion)
+        get_response_logger(res,"update_lead_conversion")
         return True, item
 
 
