@@ -28,7 +28,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
         response = await client.get(url)
 
     r = response.json()
-    logging.info(f'topic field of data filled with {r}')
+    logging.info(f'{topic} field of data filled with response: {r}')
     data[topic] = r
     
 
