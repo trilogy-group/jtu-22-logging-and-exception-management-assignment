@@ -48,8 +48,9 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logger.info("get_quicksight_data function completed")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
-logger.info("get_quicksight_data function completed")
+
 
 logger.info("submit function initiated")
 @router.post("/conversion")
