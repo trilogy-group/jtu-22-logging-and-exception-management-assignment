@@ -1,13 +1,13 @@
-import logging
+from logger import logger
 
 
 def get_token():
     '''[Dummy function]'''
-    logging.info('get token')
+    logger.info('get token')
     pass
 
 
 def get_api_key():
     '''[Dummy function]'''
-    logging.info('get api key')
+    logger.info('get api key')
     pass

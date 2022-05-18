@@ -1,4 +1,4 @@
-import logging
+from logger import logger
 import time
 
 from fastapi import FastAPI
@@ -29,5 +29,5 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
-    logging.info('[Ping]: Response in {time_taken}ms')
+    logger.info(f'[Ping]: Response in {time_taken}ms')
     return {f"Pong with response time {time_taken} ms"}

@@ -1,7 +1,6 @@
-import logging
-
+from logger import logger
 
 def get_customer_coordinate():
     '''[Dummy function]'''
-    logging.info('get customer coordinate')
+    logger.info('get customer coordinate')
     pass

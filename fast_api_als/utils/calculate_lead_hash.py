@@ -1,7 +1,7 @@
-import logging
+from logger import logger
 
 
 def calculate_lead_hash():
     '''[Dummy function]'''
-    logging.info('calculate lead hash')
+    logger.info('calculate lead hash')
     pass

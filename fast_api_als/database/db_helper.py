@@ -1,5 +1,5 @@
 import uuid
-import logging
+from logger import logger
 import time
 import boto3
 import botocore
@@ -19,7 +19,7 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
 
 def log_db_table_operation(res, operation):
     response_code = res['ResponseMetadata']['HTTPStatusCode']
-    logging.info(
+    logger.info(
         f'[DBHelper]: Performed `{operation}` operation on table with reponse code: {response_code}')
 
 

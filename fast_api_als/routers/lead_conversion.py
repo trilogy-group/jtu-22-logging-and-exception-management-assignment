@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException
-import logging
+from logger import logger
 import time
 
 from fastapi import Request
@@ -14,7 +14,7 @@ from fast_api_als.utils.cognito_client import get_user_role
 router = APIRouter()
 
 """
-write proper logging and exception handling
+write proper logger and exception handling
 """
 
 
@@ -29,12 +29,12 @@ def get_quicksight_data(lead_uuid, item):
     """
 
     if 'make' not in item:
-        logging.error(
+        logger.error(
             '[generate quicksight data]: property `make` missing in item')
         raise Exception('property `make` missing in item')
 
     if 'model' not in item:
-        logging.error(
+        logger.error(
             '[generate quicksight data]: property `model` missing in item')
         raise Exception('property `model` missing in item')
 
@@ -60,7 +60,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        logging.error(
+        logger.error(
             "[Lead Conversion]: `lead_uuid` or `converted` missing in body")
         raise HTTPException(
             status_code=500, detail="`lead_uuid` or `converted` missing in body")
@@ -70,7 +70,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        logging.error(
+        logger.error(
             "[Lead Conversion]: Unauthorized Role")
         raise HTTPException(
             status_code=401, detail="Unauthorized Role")
@@ -81,7 +81,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
         now = int(time.time() * 1000.0)
-        logging.info(f'[Lead Conversion]: Completed in {now - start}ms')
+        logger.info(f'[Lead Conversion]: Completed in {now - start}ms')
 
         return {
             "status_code": status.HTTP_200_OK,
@@ -89,7 +89,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         now = int(time.time() * 1000.0)
-        logging.error(
+        logger.error(
             f"[Lead Conversion]: Unable to update lead conversation, time taken: {now - start}ms")
         raise HTTPException(
             status_code=500, detail="Unable to update lead conversation")

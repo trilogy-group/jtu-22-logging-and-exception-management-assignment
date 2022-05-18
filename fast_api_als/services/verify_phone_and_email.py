@@ -1,7 +1,7 @@
 import time
 import httpx
 import asyncio
-import logging
+from logger import logger
 from fast_api_als.constants import (
     ALS_DATA_TOOL_EMAIL_VERIFY_METHOD,
     ALS_DATA_TOOL_PHONE_VERIFY_METHOD,
@@ -26,7 +26,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     r = response.json()
     data[topic] = r
     end = int(time.time() * 1000.0)
-    logging.info(f'[Verify phone and email]: {topic} validation complete in {end - start}ms')
+    logger.info(f'[Verify phone and email]: {topic} validation complete in {end - start}ms')
     
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
@@ -50,7 +50,7 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
         call_validation_service(phone_validation_url, "phone", phone_number, data),
     )
     now = int(time.time() * 1000.0)
-    logging.info(f'[Verify phone and email]: Phone and Email validation complete in {now - start}ms')
+    logger.info(f'[Verify phone and email]: Phone and Email validation complete in {now - start}ms')
 
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):

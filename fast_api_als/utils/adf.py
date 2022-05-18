@@ -1,6 +1,6 @@
 import xmltodict
 from jsonschema import validate, draft7_format_checker
-import logging
+from logger import logger
 from uszipcode import SearchEngine
 import re
 
@@ -41,7 +41,7 @@ def parse_xml(adf_xml):
     try:
         obj = xmltodict.parse(adf_xml)
     except Exception as e:
-        logging.error(f'Unable to parse adf xml, {e}')
+        logger.error(f'Unable to parse adf xml, {e}')
         raise Exception(f'Unable to parse adf xml, {e}')
     return obj
 
@@ -100,5 +100,5 @@ def check_validation(input_json):
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logging.error(f"Validation failed: {e.message}")
+        logger.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message

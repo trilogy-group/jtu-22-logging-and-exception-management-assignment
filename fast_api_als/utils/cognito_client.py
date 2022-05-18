@@ -1,4 +1,4 @@
-import logging
+from logger import logger
 
 
 def get_user_role(token):
@@ -15,5 +15,5 @@ def get_user_role(token):
     elif token == '1':
         return '3PL'
     else:
-        logging.error('Invalid token')
+        logger.error('Invalid token')
         raise Exception('Invalid token')

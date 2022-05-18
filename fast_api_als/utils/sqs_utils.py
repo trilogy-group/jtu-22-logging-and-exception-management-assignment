@@ -1,7 +1,7 @@
-import logging
+from logger import logger
 
 
 def sqs_helper_session():
     '''[Dummy function]'''
-    logging.info('sqs helper session')
+    logger.info('sqs helper session')
     pass

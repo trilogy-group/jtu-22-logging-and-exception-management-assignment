@@ -1,5 +1,5 @@
 import json
-import logging
+from logger import logger
 from fastapi import Request
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -17,6 +17,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
+        logger.error('Unauthorized to reset auth key')
         raise HTTPException(
             status_code=401, detail="Unauthorized to reset auth key")
 
@@ -36,8 +37,9 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
+        logger.error('Unauthorized to view auth key')
         raise HTTPException(
-            status_code=401, detail="Unauthorized to reset auth key")
+            status_code=401, detail="Unauthorized to view auth key")
 
     if role == "ADMIN":
         provider = body['3pl']

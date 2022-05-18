@@ -1,7 +1,7 @@
-import logging
+from logger import logger
 
 
 def create_quicksight_data():
     '''[Dummy function]'''
-    logging.info('create quicksight data')
+    logger.info('create quicksight data')
     pass

@@ -1,9 +1,9 @@
-import logging
+from logger import logger
 
 
 class s3_helper_client:
 
     def put_file(item, path):
         '''[Dummy function]'''
-        logging.info('putting file')
+        logger.info('putting file')
         return
