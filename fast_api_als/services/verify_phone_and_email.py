@@ -13,6 +13,8 @@ How can you write log to understand what's happening in the code?
 You also trying to undderstand the execution time factor.
 """
 
+logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
+
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
     start = int(time.time() * 1000.0)
 
@@ -26,7 +28,6 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
 
     time_taken = int(time.time() * 1000.0) - start
 
-    logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
     logging.info(f'Phone and Email Validation Time : {time_taken}')
     
 
@@ -61,5 +62,4 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
 
     time_taken = int(time.time() * 1000.0) - start
 
-    logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
     logging.info(f'Phone and Email verification Time : {time_taken}')

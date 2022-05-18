@@ -4,7 +4,7 @@ import logging
 from uszipcode import SearchEngine
 import re
 
-
+logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -29,7 +29,6 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
         logging.exception("Failed to perform date matching to ISO8601 format")
     return False
 
@@ -43,7 +42,6 @@ def parse_xml(adf_xml):
     try
         obj = xmltodict.parse(adf_xml)
     except: 
-        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
         logging.exception("Parsing Exception occured while parsing adf_xml")
         obj = None
     return obj

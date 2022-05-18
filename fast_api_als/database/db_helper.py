@@ -16,6 +16,7 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -346,7 +347,6 @@ class DBHelper:
         return True, item
     
     def log_response_code(res):
-        logging.basicConfig(filename='fast_api_als.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s')
         logging.info(f"Response code = {res['ResponseMetadata']['HTTPStatusCode']}, {res['ResponseMetadata']}")
 
 
