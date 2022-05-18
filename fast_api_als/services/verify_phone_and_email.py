@@ -28,7 +28,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     data[topic] = r
     time_taken = (time.process_time() - start) * 1000
 
-    logging.info(f"fn call_validation_service: Completed in {time_taken} ms")
+    logging.info(f"fn call_validation_service: {topic} validation completed in {time_taken} ms")
     
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
