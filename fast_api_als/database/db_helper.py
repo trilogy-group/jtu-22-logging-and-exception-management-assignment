@@ -342,7 +342,7 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(email)
         )
         log_db_self_table(email_attached_leads, "query")
-         = self.table.query(
+         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
