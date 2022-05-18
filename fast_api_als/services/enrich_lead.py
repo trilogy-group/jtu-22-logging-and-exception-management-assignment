@@ -15,8 +15,8 @@ def get_enriched_lead_json(adf_json: dict) -> dict:
     try:
         pass
     except KeyError:
-        logging.exception(f"[Enrich Lead] Key not found in ADF JSON.{adf_json}")
+        logging.exception(f"Key not found in ADF JSON.{adf_json}")
         return {}
     except:
-        logging.exception(f"[Enrich Lead] Some exception occured while enriching lead. {adf_json}")
+        logging.exception(f"Some exception occured while enriching lead. {adf_json}")
         return {}

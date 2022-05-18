@@ -37,7 +37,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
-    logging.info(f"[Lead conversion] Quicksight data processed for lead with uuid {lead_uuid}")
+    logging.info(f"Quicksight data processed for lead with uuid {lead_uuid}")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -53,7 +53,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
-    log.info(f"[Lead conversion] Lead conversion in progress for lead with uuid {lead_uuid}")
+    log.info(f"Lead conversion in progress for lead with uuid {lead_uuid}")
 
     oem, role = get_user_role(token)
     if role != "OEM":
@@ -64,7 +64,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
-        logging.info("[Lead conversion] Lead coversion updated successfully")
+        logging.info("Lead coversion updated successfully")
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"

@@ -376,12 +376,12 @@ class DBHelper:
 def log_db_table_operations(res, func1, func2):
     response_code = res['ResponseMetadata']['HTTPStatusCode']
     if response_code == 200:
-        logging.info("[DB Helper] HTTP code returned = %d for operation %s called in function %s",response_code, func1.__name__, func2.__name__)
+        logging.info("HTTP code returned = %d for operation %s called in function %s",response_code, func1.__name__, func2.__name__)
     else:
         call_stack = ""
         for line in traceback.format_stack():
             call_stack = call_stack + line
-        logging.error("[DB Helper] HTTP code returned = %d for operation %s called in function %s.\n%s",response_code, func1.__name__, func2.__name__, call_stack)
+        logging.error("HTTP code returned = %d for operation %s called in function %s.\n%s",response_code, func1.__name__, func2.__name__, call_stack)
 
 session = get_boto3_session()
 db_helper_session = DBHelper(session)

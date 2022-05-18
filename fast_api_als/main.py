@@ -26,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logging.basicConfig(filename='all_logs.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+logging.basicConfig(filename='all_logs.log', level=logging.DEBUG, format='%(asctime)s %(filename)s %(levelname)s: %(message)s')
 
 @app.get("/")
 def root():
