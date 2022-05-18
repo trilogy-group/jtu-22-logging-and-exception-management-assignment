@@ -11,7 +11,8 @@ from fast_api_als.constants import (
 
 
 basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{name} || {asctime} || {message}")
-logger =  getLogger("man")
+name = "man"
+logger =  getLogger(name)
 
 """
 How can you write log to understand what's happening in the code?
@@ -28,7 +29,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
 
     r = response.json()
     data[topic] = r
-    logger.info("time taken for call_validation_service : "  + int(time.time() * 1000.0) - start)
+    logger.info("time taken for call_validation_service : "  + str(int(time.time() * 1000.0) - start))
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     start = int(time.time() * 1000.0)
@@ -50,7 +51,7 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
         call_validation_service(email_validation_url, "email", email, data),
         call_validation_service(phone_validation_url, "phone", phone_number, data),
     )
-    logger.info("time taken by validation services : "  + int(time.time() * 1000.0) - start)
+    logger.info("time taken by validation services : "  + str(int(time.time() * 1000.0) - start))
 
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):

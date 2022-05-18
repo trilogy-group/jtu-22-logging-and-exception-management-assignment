@@ -14,7 +14,8 @@ from fast_api_als.services.authenticate import get_token
 router = APIRouter()
 
 basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{name} || {asctime} || {message}")
-logger =  getLogger("man")
+name = "man"
+logger =  getLogger(name)
 
 """
 write proper logging and exception handling
@@ -74,9 +75,9 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
-        logger.info("file is updated time taken : " + (time.time() - start_time))
+        logger.info("file is updated time taken : " + str(time.time() - start_time))
 
     else:
-        logger.error("there was an error while updating Lead conversion time taken : " + (time.time() - start_time))
+        logger.error("there was an error while updating Lead conversion time taken : " + str(time.time() - start_time))
         raise HTTPException(status_code=500, detail="counter an error while updating lead conversation")
         pass

@@ -25,7 +25,8 @@ router = APIRouter()
 
 
 basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{name} || {asctime} || {message}")
-logger =  getLogger("man")
+name = "man"
+logger =  getLogger(name)
 
 """
 Add proper logging and exception handling.
@@ -60,7 +61,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
-        logger.error("invalid XML || Lead rejected while parsing XML time taken " + int(time.time() * 1000.0) - start)
+        logger.error("invalid XML || Lead rejected while parsing XML time taken " + str(int(time.time() * 1000.0) - start) )
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -76,7 +77,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
-        logger.error("xml is not valid validation code : " + validation_code +" " + validation_message + " time taken : "+ int(time.time() * 1000.0) - start )
+        logger.error("xml is not valid validation code : " + validation_code +" " + validation_message + " time taken : "+ str(int(time.time() * 1000.0) - start) )
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -153,7 +154,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
 
-    logger.info("result of lead is " + result +  " time taken by ml model is : "+ int(time.time() * 1000.0) - mltime)
+    logger.info("result of lead is " + result +  " time taken by ml model is : "+ str(int(time.time() * 1000.0) - mltime) )
 
     # create the response
     response_body = {}

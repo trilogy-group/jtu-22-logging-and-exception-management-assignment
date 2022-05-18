@@ -16,8 +16,8 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     
     write a commong function that logs this response code with appropriate context data
 """
-
-logger =  getLogger("man")
+name = "man"
+logger =  getLogger(name)
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
         self.session = session

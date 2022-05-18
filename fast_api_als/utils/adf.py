@@ -5,8 +5,8 @@ from uszipcode import SearchEngine
 import re
 
 basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{name} || {asctime} || {message}")
-logger =  getLogger("man")
-
+name = "man"
+logger =  getLogger(name)
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -26,7 +26,7 @@ def process_before_validating(input_json):
     if isinstance(input_json['adf']['prospect']['vehicle'].get('price', []), dict):
         input_json['adf']['prospect']['vehicle']['price'] = [input_json['adf']['prospect']['vehicle']['price']]
     
-    logger.info("time taken to process before validating " + int(time.time() * 1000.0) - start)
+    logger.info("time taken to process before validating " + str(int(time.time() * 1000.0) - start) )
 
 
 def validate_iso8601(requestdate):
