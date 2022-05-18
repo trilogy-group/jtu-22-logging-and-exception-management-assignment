@@ -53,7 +53,6 @@ def parse_xml(adf_xml):
         logger.info(" successfully prase xml file")
     except Exception as e:
         logger.error("Unable to parse xml file" + e)
-        raise Exception('Unable to parse adf xml')
     return obj
 
 
