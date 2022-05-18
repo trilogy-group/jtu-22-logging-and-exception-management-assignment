@@ -337,7 +337,7 @@ class DBHelper:
         return lead_exist
 
     def check_duplicate_lead(self, email: str, phone: str, last_name: str, make: str, model: str):
-         = self.table.query(
+        email_attached_leads = self.table.query(
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
