@@ -87,7 +87,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
-        logger.
         logger.error("adf xml is invalid and error occured")
         return {
             "status": "REJECTED",
