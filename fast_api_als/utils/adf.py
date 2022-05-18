@@ -11,14 +11,16 @@ format='%(asctime)s:%(levelname)s:%(message)s')
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
 match_iso8601 = re.compile(regex).match
 zipcode_search = SearchEngine()
-if not match_iso8601:
-            logging.warning("match_iso8601 is not defined")
-else :
-            logging.info("match_iso8601 is defined")
+# if not match_iso8601:
+#             logging.warning("match_iso8601 is not defined")
+# else :
+#             logging.info("match_iso8601 is defined")
 
 def process_before_validating(input_json):
-    if not input_json:
-            logging.warning("input_json is not defined")
+    # if not input_json:
+    #         logging.warning("input_json is not defined")
+    #m=("input_json is not defined","input_json is defined")[input_json]
+    logging.info(f'input_json is {input_json}')
    
     if isinstance(input_json['adf']['prospect']['id'], dict):
         input_json['adf']['prospect']['id'] = [input_json['adf']['prospect']['id']]
@@ -45,14 +47,14 @@ def is_nan(x):
 
 
 def parse_xml(adf_xml):
-    if not adf_xml:
-            logging.warning("adf_xml is not defined")
-    else :
-                logging.info("adf_xml is defined")
+    # if not adf_xml:
+    #         logging.warning("adf_xml is not defined")
+    # else :
+    #             logging.info("adf_xml is defined")
+    logging.info(f'adf_xml is {adf_xml}')
     try :
         obj = xmltodict.parse(adf_xml)
     except:
-   
         logging.warning("obj is not defined")
     return obj
 
@@ -64,10 +66,12 @@ def validate_adf_values(input_json):
     phone = input_json['customer']['contact'].get('phone', None)
     names = input_json['customer']['contact']['name']
     make = input_json['vehicle']['make']
-    if not (input_json or zipcode or email or phone or names or make):
-            logging.warning("problem in values in validate_adf_values")
-    else :
-                logging.info("values in validate_adf_values are ok ")
+    # if not (input_json or zipcode or email or phone or names or make):
+    #         logging.warning("problem in values in validate_adf_values")
+    # else :
+    #             logging.info("values in validate_adf_values are ok ")
+    logging.info(f'input_json = {input_json} , zipcode = {zipcode} , email = {email} , phone = {phone},  names= {names}, make = {make}')
+    
     first_name, last_name = False, False
     for name_part in names:
         if name_part.get('@part', '') == 'first' and name_part.get('#text', '') != '':

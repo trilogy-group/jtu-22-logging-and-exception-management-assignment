@@ -140,19 +140,21 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
-    if not model_input:
-        logging.warning("model_input is undefined")
-    else :
-        logging.info("model_input is good")
+    # if not model_input:
+    #     logging.warning("model_input is undefined")
+    # else :
+    #     logging.info("model_input is good")
+    logging.info(f'model input is {model_input}')
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
-    if not result:
-        logging.warning("result is undefined")
-    else :
-        logging.info("result is good")
+    # if not result:
+    #     logging.warning("result is undefined")
+    # else :
+    #     logging.info("result is good")
+    logging.info(f'result is {result}')
     # create the response
     response_body = {}
     if result >= oem_threshold:
@@ -210,10 +212,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        if not message:
-            logging.warning("message  is undefined")
-        else :
-            logging.info("message is good ")
+        # if not message:
+        #     logging.warning("message  is undefined")
+        # else :
+        #     logging.info("message is good ")
+        logging.info("message is ",message)
+
         res = sqs_helper_session.send_message(message)
 
     else:
