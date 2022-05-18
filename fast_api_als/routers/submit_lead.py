@@ -38,18 +38,21 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        logging.error("/submit: fn submit  : Invalid API key)")
+        logging.error("/submit: Invalid API key)")
         raise HTTPException(status_code = 401, detail="/submit: fn submit  : Invalid API key)")
         
     
     body = await file.body()
     body = str(body, 'utf-8')
-
-    obj = parse_xml(body)
+    try:
+        obj = parse_xml(body)
+    except:
+        logging.error(f"/submit: Failed Parsing body xml")
+        raise Exception(f"/submit: Failed Parsing xml body")
     time_taken = (time.process_time() - start) * 1000
 
     # Log time_taken
-    logging.info(f"/submit: fn submit : xml parsed in {time_taken} ms")
+    logging.info(f"/submit: xml parsed in {time_taken} ms")
 
     s_time = int(time.time() * 1000.0)
     # check if xml was not parsable, if not return
@@ -66,7 +69,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         time_taken = (time.process_time() - s_time) * 1000
 
         # Log time_taken
-        logging.error(f"/submit: fn submit : Error occured while parsing XML and input rejected in {time_taken} ms")
+        logging.error(f"/submit: Error occured while parsing XML and input rejected in {time_taken} ms")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -84,7 +87,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         s3_helper_client.put_file(item, path)
         time_taken = (time.process_time() - s_time) * 1000
         
-        logging.info(f"/submit: fn submit : Input rejected due to adf xml verification failed in {time_taken} ms")
+        logging.info(f"/submit: Input rejected due to adf xml verification failed in {time_taken} ms")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -97,8 +100,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     try:
         email, phone, last_name = get_contact_details(obj)
     except:
-        logging.error("/submit: fn submit : Error while getting contact details")
-        raise Exception("/submit: fn submit : Error while getting contact details")
+        logging.error("/submit: Error while getting contact details")
+        raise Exception("/submit: Error while getting contact details")
 
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
@@ -106,7 +109,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (time.process_time() - s_time) * 1000
 
     # Log time_taken
-    logging.info(f"/submit: fn submit : obtained make and model in {time_taken} ms")
+    logging.info(f"/submit: obtained make and model in {time_taken} ms")
     s_time = int(time.time() * 1000.0)
 
     fetched_oem_data = {}
@@ -127,7 +130,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 }
             
             if result.get('Duplicate_Lead', False):
-                logging.info(f"/submit: fn submit : Duplicate lead")
+                logging.info(f"/submit: Duplicate lead")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -137,7 +140,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 fetched_oem_data = result['fetch_oem_data']
 
     time_taken = (time.process_time() - s_time) * 1000
-    logging.info(f"/submit: fn submit : Check for duplicate call or lead done in {time_taken} ms")
+    logging.info(f"/submit: Check for duplicate call or lead done in {time_taken} ms")
     if fetched_oem_data == {}:
         logging.info("OEM data not found")
         return {
@@ -166,17 +169,17 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     s_time = int(time.time() * 1000.0)
     model_input = get_enriched_lead_json(obj)
     time_taken = (time.process_time() - s_time) * 1000
-    logging.info(f"/submit: fn submit : Lead is enriched in {time_taken} ms")
+    logging.info(f"/submit: Lead is enriched in {time_taken} ms")
     # convert the enriched lead to ML input format
     s_time = int(time.time() * 1000.0)
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
     time_taken = (time.process_time() - s_time) * 1000
-    logging.info(f"/submit: fn submit : converted the enriched lead to ML input format in {time_taken} ms")
+    logging.info(f"/submit: converted the enriched lead to ML input format in {time_taken} ms")
     # score the lead
     s_time = int(time.time() * 1000.0)
     result = score_ml_input(ml_input, make, dealer_available)
     time_taken = (time.process_time() - s_time) * 1000
-    logging.info(f"/submit: fn submit : scored the lead in {time_taken} ms")
+    logging.info(f"/submit: scored the lead in {time_taken} ms")
 
 
     # create the response
@@ -197,7 +200,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         except:
             logging.info("/submit: fn submit: Verification of phone and email failed")
         time_taken = (time.process_time() - s_time) * 1000
-        logging.info(f"/submit: fn submit : Verification of phone and email done in {time_taken} ms")
+        logging.info(f"/submit: Verification of phone and email done in {time_taken} ms")
         if not contact_verified:
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
@@ -207,7 +210,9 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_uuid, response_body['status'],
                                         response_body['code'], model_input)
     except:
-        logging.error("/submit: fn submit: Unable to create quicksight data")
+        logging.error("/submit: Unable to create quicksight data")
+        raise Exception("/submit: Unable to create quicksight data")
+
     # insert the lead into ddb with oem & customer details
     # delegate inserts to sqs queue
     if response_body['status'] == 'ACCEPTED':
@@ -262,7 +267,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         res = sqs_helper_session.send_message(message)
     time_taken = (int(time.time() * 1000.0) - start)
-    logging.info(f"/submit: fn submit : {result} Response Time : {time_taken} ms")
+    logging.info(f"/submit: {result} Response Time : {time_taken} ms")
     response_message = f"{result} Response Time : {time_taken} ms"
 
     return response_body

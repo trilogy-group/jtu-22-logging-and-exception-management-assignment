@@ -59,7 +59,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
-        logging.error("conversion: fn submit  : 'lead_uuid' key or 'converted' key is not present in body")
+        logging.error("/conversion : 'lead_uuid' key or 'converted' key is not present in body")
         raise HTTPException(status_code = 500, detail="conversion: fn submit : 'lead_uuid' key or 'converted' key is not present in body")
         
         
@@ -69,14 +69,14 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         # throw proper HTTPException
-        logging.error("conversion: fn submit  : Unauthorized access(role != `OEM`)")
+        logging.error("/conversion: Unauthorized access(role != `OEM`)")
         raise HTTPException(status_code = 401, detail="conversion: fn submit  : Unauthorized access(role != `OEM`)")
         
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
         time_taken = (time.process_time() - start) * 1000
 
-        logging.info(f"conversion: fn submit: The response time {time_taken} ms")
+        logging.info(f"/conversion: The response time {time_taken} ms")
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
         return {
@@ -85,5 +85,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         # throw proper HTTPException
-        logging.error("conversion: fn submit: Unable to update lead conversion")
+        logging.error("/conversion: Unable to update lead conversion")
         raise HTTPException(status_code = 500, detail="conversion: fn submit: Unable to update lead conversion")
