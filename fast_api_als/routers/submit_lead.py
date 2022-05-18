@@ -58,13 +58,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
-        logging.error("unparseable body in post request of submit")
+        logging.error("unparseable body found")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
-    logging.info("parsed body in post request of submit successfully")
+    logging.info("parsed body in of submit successfully")
     lead_hash = calculate_lead_hash(obj)
 
     # check if adf xml is valid
@@ -74,7 +74,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
-        logging.error("not valid in post request of submit")
+        logging.error("validation check failed")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -100,7 +100,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if not result:
-                logging.warning("result is undefined in post request of submit")
+                logging.warning("result is undefined ")
             if result.get('Duplicate_Api_Call', {}).get('status', False):
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
@@ -128,7 +128,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
     oem_threshold = float(fetched_oem_data['threshold'])
     if not oem_threshold:
-        logging.warning("oem_threshold in post request of submit is undefined")
+        logging.warning("oem_threshold  is undefined")
     # if dealer is not available then find nearest dealer
     if not dealer_available:
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
@@ -141,16 +141,16 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
     if not model_input:
-        logging.warning("model_input in post request of submit is undefined")
+        logging.warning("model_input is undefined")
     else :
-        logging.info("model_input is good in post request of submit")
+        logging.info("model_input is good")
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
     if not result:
-        logging.warning("result in post request of submit is undefined")
+        logging.warning("result is undefined")
     else :
         logging.info("result is good")
     # create the response
@@ -211,9 +211,9 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         if not message:
-            logging.warning("message in post request of submit is undefined")
+            logging.warning("message  is undefined")
         else :
-            logging.info("message is good in post request of submit")
+            logging.info("message is good ")
         res = sqs_helper_session.send_message(message)
 
     else:

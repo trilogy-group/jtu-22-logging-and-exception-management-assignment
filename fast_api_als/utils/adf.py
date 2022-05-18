@@ -49,11 +49,11 @@ def parse_xml(adf_xml):
             logging.warning("adf_xml is not defined")
     else :
                 logging.info("adf_xml is defined")
-    obj = xmltodict.parse(adf_xml)
-    if not obj:
-            logging.warning("obj is not defined")
-    else :
-                logging.info("obj is defined")
+    try :
+        obj = xmltodict.parse(adf_xml)
+    except:
+   
+        logging.warning("obj is not defined")
     return obj
 
 

@@ -17,20 +17,20 @@ format='%(asctime)s:%(levelname)s:%(message)s')
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
     body = json.loads(body)
-    logging.info("body recieved by post request of reset_authkey is "+body)
+    logging.info("body recieved  is "+body)
     try :
         provider, role = get_user_role(token)
     except:
-        logging.error("provider / role is undefined in post request of reset_authkey")
-    logging.info("provider and role in post request of authkey is "+provider+role)
+        logging.error("provider / role is undefined ")
+    logging.info("provider and role are "+provider+role)
     
     if role != "ADMIN" and (role != "3PL"):
         raise HTTPException(
-            status_code=401)
+            status_code=401,detail="Unauthorized")
     if role == "ADMIN":
         provider = body['3pl']
         if not provider:
-            logging.warning("provider is not defined in post request of view_authkey")
+            logging.warning("provider is not defined ")
         else :
             logging.info("provider is defined")
     apikey = db_helper_session.set_auth_key(username=provider)
@@ -43,22 +43,22 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
-    logging.info("body recieved by post request of view_authkey is "+body)
+    logging.info("body recieved is "+body)
     
     body = json.loads(body)
     try :
         provider, role = get_user_role(token)
     except:
-        logging.error("provider / role is undefined in post request of view_authkey")
-    logging.info("provider and role in post request of authkey is "+provider+role)
+        logging.error("provider / role is undefined")
+    logging.info("provider and role  are "+provider+role)
 
     if role != "ADMIN" and role != "3PL":
         raise HTTPException(
-            status_code=401)
+            status_code=401,detail="Unauthorized")
     if role == "ADMIN":
         provider = body['3pl']
         if not provider:
-            logging.warning("provider is not defined in post request of view_authkey")
+            logging.warning("provider is not defined")
     apikey = db_helper_session.get_auth_key(username=provider)
     return {
         "status_code": HTTP_200_OK,

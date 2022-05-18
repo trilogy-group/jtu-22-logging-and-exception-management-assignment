@@ -46,16 +46,16 @@ def get_quicksight_data(lead_uuid, item):
 async def submit(file: Request, token: str = Depends(get_token)):
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
-    logging.info("body recieved by post request of reset_authkey is "+body)
+    logging.info("body recieved  is "+body)
     try :
         provider, role = get_user_role(token)
     except:
-        logging.error("provider / role is undefined in post request of reset_authkey")
-    logging.info("provider and role in post request of authkey is "+provider+role)
+        logging.error("provider / role is undefined ")
+    logging.info("provider and role is "+provider+role)
     if 'lead_uuid' not in body or 'converted' not in body:
         raise HTTPException(
             status_code=400,detail="leaduuid or converted is missing")
-        pass
+        
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -64,7 +64,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if role != "OEM":
         raise HTTPException(status_code=401, detail="Unauhorized")
     
-        pass
+        
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -77,4 +77,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
     else:
         HTTPException(status_code=400, detail="unable to update")
     
-        pass
+     
