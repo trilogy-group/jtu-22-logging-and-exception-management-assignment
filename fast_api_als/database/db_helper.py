@@ -1,5 +1,5 @@
 import uuid
-from logging import *
+from logging import info, error 
 import time
 import boto3
 import botocore
