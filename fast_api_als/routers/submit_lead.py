@@ -44,11 +44,17 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     body = await file.body()
     body = str(body, 'utf-8')
+
     try:
         obj = parse_xml(body)
     except:
-        logging.error(f"/submit: Failed Parsing body xml")
-        raise Exception(f"/submit: Failed Parsing xml body")
+        # this log statement may be redundant, but put to make sure, if parse_xml would be called from various
+        logging.error(f"/submit: Unable to parse body xml")
+        return {
+                    "status": "REJECTED",
+                    "message": "Unable to parse body xml"
+                }
+
     time_taken = (time.process_time() - start) * 1000
 
     # Log time_taken
