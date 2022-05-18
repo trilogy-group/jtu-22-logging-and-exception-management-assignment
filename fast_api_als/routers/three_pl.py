@@ -31,8 +31,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
         provider = body['3pl']
         if not provider:
             logging.warning("provider is not defined ")
-        else :
-            logging.info("provider is defined")
+        
     apikey = db_helper_session.set_auth_key(username=provider)
     return {
         "status_code": HTTP_200_OK,
