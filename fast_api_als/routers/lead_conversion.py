@@ -39,7 +39,7 @@ def get_quicksight_data(lead_uuid, item):
     """
     for id in item:
         if item[id] == '':
-            logging.error(f'{id} field empty in item')
+            logging.warning(f'{id} field empty in item')
             raise Exception(f'{id} field empty in item')
     data = {
         "lead_hash": lead_uuid,
@@ -63,7 +63,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         logger.error('lead_uuid or converted not in body')
-        raise HTTPException(status_code=404, detail="lead_uuid or converted not in body")
+        raise HTTPException(status_code=400, detail="lead_uuid or converted not in body")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -71,7 +71,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         logger.error("Unauthorized Role: User role not OEM")
-        raise HTTPException(status_code=406, detail="Role of the user is not OEM")
+        raise HTTPException(status_code=403, detail="Role of the user is not OEM")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -83,4 +83,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         logger.error('Lead conversion Failed')
-        raise HTTPException(status_code=404, detail="Lead conversion Failed")
+        raise HTTPException(status_code=401, detail="Lead conversion Failed")
