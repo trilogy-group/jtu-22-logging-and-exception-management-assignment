@@ -70,13 +70,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "message": "Error occured while parsing XML"
         }
     t2 = [int(time.time() * 1000.0)]
-    logger.info('XML object parsed in time: {t2 - t1} ms')
+    logger.info(f'XML object parsed in time: {t2 - t1} ms')
     
     lead_hash = calculate_lead_hash(obj)
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
     t1 = [int(time.time() * 1000.0)]
-    logger.info('XML object verified in time: {t1 - t2} ms')
+    logger.info(f'XML object verified in time: {t1 - t2} ms')
     #if not valid return
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
@@ -94,7 +94,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     model = obj['adf']['prospect']['vehicle']['model']
 
     if dealer_available:
-        logger.info('Vendor available for vehicle - {vehicle} with make - {make} and model - {model}')
+        logger.info(f'Vendor available for vehicle - {vehicle} with make - {make} and model - {model}')
   
     fetched_oem_data = {}
 
@@ -145,7 +145,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     t2 = [int(time.time() * 1000.0)]
     if dealer_available:
-        logger.info('Dealer successfully found in time: {t2 - t1} ms')
+        logger.info(f'Dealer successfully found in time: {t2 - t1} ms')
     else:
         logger.info('Dealer not found')
         
@@ -153,12 +153,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
     t2 = [int(time.time() * 1000.0)]
-    logger.info('Lead data enriched in time: {t2 - t1} ms')
+    logger.info(f'Lead data enriched in time: {t2 - t1} ms')
     # convert the enriched lead to ML input format
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
     
     t1 = [int(time.time() * 1000.0)]
-    logger.info('Enriched data converted to appropriate ml input in time: {t1 - t2} ms')
+    logger.info(f'Enriched data converted to appropriate ml input in time: {t1 - t2} ms')
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
     
@@ -223,7 +223,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        logger.info('Sending customer details to the lead dealer')
+        logger.info(f'Sending customer details to the lead dealer')
         res = sqs_helper_session.send_message(message)
 
     else:
