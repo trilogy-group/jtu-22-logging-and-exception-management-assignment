@@ -1,5 +1,5 @@
 import uuid
-from logging import info, error 
+from logging import info, error,getLogger
 import time
 import boto3
 import botocore
@@ -17,7 +17,7 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
-
+logger =  getLogger("man")
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
         self.session = session
@@ -26,7 +26,7 @@ class DBHelper:
         self.geo_data_manager = self.get_geo_data_manager()
         self.dealer_table = self.ddb_resource.Table(constants.DEALER_DB_TABLE)
         self.get_api_key_author("Initialize_Connection")
-        info("session is created")
+        logger.info("session is created")
 
     def get_geo_data_manager(self):
         config = dynamodbgeo.GeoDataManagerConfiguration(self.session.client('dynamodb', config=botocore.client.Config(max_pool_connections=99)), constants.DEALER_DB_TABLE)
