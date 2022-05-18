@@ -55,7 +55,6 @@ def parse_xml(adf_xml):
     try:
         parsefile(adf_xml)
     except Exception as e:
-        print (f"adf_xml is NOT well-formed! {e}")
         logger.error('XML file not well-formed')
         obj = None
         return obj
@@ -86,7 +85,7 @@ def validate_adf_values(input_json):
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
-    logger.info(f"Zipcode varification for code - {zipcode}")
+    logger.info(f"Zipcode verification for code - {zipcode}")
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
