@@ -50,7 +50,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
         logging.error("'lead_uuid' or 'converted' not found")
-        raise HTTPException(status_code=500, detail="'lead_uuid' or 'converted' not found")
+        raise HTTPException(status_code=400, detail="'lead_uuid' or 'converted' not found")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -72,4 +72,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
     else:
         # throw proper HTTPException
         logging.error("Lead conversion failed!!")
-        raise HTTPException(status_code=500, detail="Lead conversion failed!!")
+        raise HTTPException(status_code=400, detail="Lead conversion failed!!")
