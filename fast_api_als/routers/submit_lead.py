@@ -96,10 +96,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
 
-    if dealer_available:
-        logger.info("Dealer(s) available")
-    else:
-        logger.info("No dealer is available")
+    logger.info(dealer_available ? "Dealer(s) available" : "No dealer is available")
 
     fetched_oem_data = {}
 
@@ -160,10 +157,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                                                                 lon=lon)
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
-        if (dealer_available):
-            logger.info(f"A dealer is found: {nearest_vendor}")
-        else:
-            logger.info("No nearby dealer found")
+        logger.info(dealer_available ? f"A dealer is found: {nearest_vendor}" : "No nearby dealer found")
 
     logger.info("Initiating calculation of lead score")
     start = int(time.time() * 1000.0)
