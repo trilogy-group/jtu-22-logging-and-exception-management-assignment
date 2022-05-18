@@ -61,7 +61,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
         # throw proper HTTPException
         # HTTP 400 code exception: BadRequest 
         raise HTTPException(status_code=400, detail='bad request, body has invalid parameters')       
-        pass
 
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -71,7 +70,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
         # throw proper HTTPException
         # HTTP 401 code exception: UnauthorizedException
         raise HTTPException(status_code=401, detail='Unauthorized access, role is not OEM') 
-        pass
     
     logger.info(f'user role: {role}')
     is_updated, item = db_helper_session.update_lead_conversion(
@@ -88,5 +86,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
         # throw proper HTTPException
         # 404
         raise HTTPException(status_code=404, detail='data not found for lead conversion status update') 
-        pass
 
