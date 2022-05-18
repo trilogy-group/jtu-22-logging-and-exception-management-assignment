@@ -56,7 +56,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         logging.error("lead_uuid or converted are not available.")
-        raise HTTPException(status_code = 500, detail="lead_uuid or converted are not available.")
+        raise HTTPException(status_code = 400, detail="lead_uuid or converted are not available.")
         
         
     lead_uuid = body['lead_uuid']

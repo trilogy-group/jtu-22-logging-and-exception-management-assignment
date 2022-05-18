@@ -32,7 +32,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        logging.error("unable to validate.")
+        logging.error("requestdate could not be validated.")
     return False
 
 
