@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Depends
-from logging import *
+from logging import info, error,getLogger,warning
 import time
 
 from fastapi import Request
@@ -13,7 +13,8 @@ from fast_api_als.services.authenticate import get_token
 
 router = APIRouter()
 
-basicConfig(filename='logfile.log',level = DEBUG , style= '{', format = "{asctime} || {message}")
+basicConfig(filename='logfile2.log',level = DEBUG , style= '{', format = "{name} || {asctime} || {message}")
+logger =  getLogger("man")
 
 """
 write proper logging and exception handling
@@ -39,8 +40,8 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
-    info("accepting Lead info pulled from DDB"
-    info("lead_hash " +data[lead_hash] + " model " + data[model] + " postalcode " +postalcode + " dealer " + dealer)
+    logger.info("accepting Lead info pulled from DDB")
+    logger.info("lead_hash " +data[lead_hash] + " model " + data[model] + " postalcode " +postalcode + " dealer " + dealer)
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -73,9 +74,9 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
-        info("file is updated time taken : " + (time.time() - start_time))
+        logger.info("file is updated time taken : " + (time.time() - start_time))
 
     else:
-        error("there was an error while updating Lead conversion time taken : " + (time.time() - start_time))
+        logger.error("there was an error while updating Lead conversion time taken : " + (time.time() - start_time))
         raise HTTPException(status_code=500, detail="counter an error while updating lead conversation")
         pass
