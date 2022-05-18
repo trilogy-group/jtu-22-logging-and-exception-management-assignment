@@ -16,6 +16,7 @@ You also trying to undderstand the execution time factor.
 - Since this is an async operation, also log the total time to complete the validation
 """
 
+
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
     start = int(time.time() * 1000.0)
     if value == '':
@@ -26,8 +27,9 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     r = response.json()
     data[topic] = r
     end = int(time.time() * 1000.0)
-    logger.info(f'[Verify phone and email]: {topic} validation complete in {end - start}ms')
-    
+    logger.info(
+        f'Verify phone and email {topic} validation complete in {end - start}ms')
+
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     email_validation_url = '{}?Method={}&RequestKey={}&EmailAddress={}&OutputFormat=json'.format(
@@ -47,10 +49,11 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     start = int(time.time() * 1000.0)
     await asyncio.gather(
         call_validation_service(email_validation_url, "email", email, data),
-        call_validation_service(phone_validation_url, "phone", phone_number, data),
+        call_validation_service(phone_validation_url,
+                                "phone", phone_number, data),
     )
     now = int(time.time() * 1000.0)
-    logger.info(f'[Verify phone and email]: Phone and Email validation complete in {now - start}ms')
+    logger.info(f'Phone and Email validation complete in {now - start}ms')
 
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):

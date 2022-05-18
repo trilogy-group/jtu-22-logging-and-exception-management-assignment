@@ -30,12 +30,12 @@ def get_quicksight_data(lead_uuid, item):
 
     if 'make' not in item:
         logger.error(
-            '[generate quicksight data]: property `make` missing in item')
+            'property `make` missing in item')
         raise Exception('property `make` missing in item')
 
     if 'model' not in item:
         logger.error(
-            '[generate quicksight data]: property `model` missing in item')
+            'property `model` missing in item')
         raise Exception('property `model` missing in item')
 
     data = {
@@ -81,7 +81,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
         now = int(time.time() * 1000.0)
-        logger.info(f'[Lead Conversion]: Completed in {now - start}ms')
+        logger.info(f'Completed in {now - start}ms')
 
         return {
             "status_code": status.HTTP_200_OK,

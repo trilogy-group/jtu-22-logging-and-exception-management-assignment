@@ -34,10 +34,11 @@ you will get the idea about the part when you go through the code.
 
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
+    logger.info("Submitting File")
 
     start = int(time.time() * 1000.0)
     if not db_helper_session.verify_api_key(apikey):
-        logger.error("[Submit File]: API key not verified")
+        logger.error("API key not verified")
         raise HTTPException(status_code=401, detail="API key not verified")
 
     body = await file.body()
@@ -45,12 +46,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     now = int(time.time() * 1000.0)
     logger.info(
-        f'[Submit File]: file body parsed and converted to string in {now - start}ms')
+        f'file body parsed and converted to string in {now - start}ms')
 
     before = int(time.time() * 1000.0)
     obj = parse_xml(body)
     now = int(time.time() * 1000.0)
-    logger.info(f'[Submit File]: Body xml parsed in {now - before}ms')
+    logger.info(f'Body xml parsed in {now - before}ms')
 
     # check if xml was not parsable, if not return
     if not obj:
@@ -68,7 +69,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
         now = int(time.time() * 1000.0)
         logger.info(
-            f'[Submit File]: Rejected response due unable to parse xml processed in {now - before}ms')
+            f'Rejected response due unable to parse xml processed in {now - before}ms')
 
         return {
             "status": "REJECTED",
@@ -79,7 +80,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     before = int(time.time() * 1000.0)
     lead_hash = calculate_lead_hash(obj)
     now = int(time.time() * 1000.0)
-    logger.info(f'[Submit File]: lead hash calculated in {now - before}ms')
+    logger.info(f'lead hash calculated in {now - before}ms')
 
     before = int(time.time() * 1000.0)
     # check if adf xml is valid
@@ -87,7 +88,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         obj)
     now = int(time.time() * 1000.0)
     logger.info(
-        f'[Submit File]: adf xml validation check completed in {now - before}ms')
+        f'adf xml validation check completed in {now - before}ms')
 
     # if not valid return
     if not validation_check:
@@ -99,7 +100,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
         now = int(time.time() * 1000.0)
         logger.info(
-            f'[Submit File]: Rejected response due to adf xml validation check failure processed in {now - before}ms')
+            f'Rejected response due to adf xml validation check failure processed in {now - before}ms')
 
         return {
             "status": "REJECTED",
@@ -113,7 +114,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     try:
         email, phone, last_name = get_contact_details(obj)
     except:
-        logger.error('[Submit File]: Unable to get contact details')
+        logger.error('Unable to get contact details')
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
 
@@ -146,7 +147,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 fetched_oem_data = result['fetch_oem_data']
     now = int(time.time() * 1000.0)
     logger.info(
-        f'[Submit File]: Duplicate call/Duplicate lead check complete in {now - before}ms')
+        f'Duplicate call/Duplicate lead check complete in {now - before}ms')
 
     if fetched_oem_data == {}:
         return {
@@ -176,20 +177,20 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     before = int(time.time() * 1000.0)
     model_input = get_enriched_lead_json(obj)
     now = int(time.time() * 1000.0)
-    logger.info(f'[Submit File]: Lead enriched in {now - before}ms')
+    logger.info(f'Lead enriched in {now - before}ms')
 
     # convert the enriched lead to ML input format
     before = int(time.time() * 1000.0)
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
     now = int(time.time() * 1000.0)
     logger.info(
-        f'[Submit File]: Lead converted to ml input in {now - before}ms')
+        f'Lead converted to ml input in {now - before}ms')
 
     # score the lead
     before = int(time.time() * 1000.0)
     result = score_ml_input(ml_input, make, dealer_available)
     now = int(time.time() * 1000.0)
-    logger.info(f'[Submit File]: Lead scored by ml in {now - before}ms')
+    logger.info(f'Lead scored by ml in {now - before}ms')
 
     # create the response
     response_body = {}
@@ -209,7 +210,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             logger.error("[Submit File]: Failed to verify phone and email")
         now = int(time.time() * 1000.0)
         logger.info(
-            f'[Submit File]: Phone and email verified in {now - before}ms')
+            f' Phone and email verified in {now - before}ms')
         if not contact_verified:
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
@@ -276,7 +277,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         res = sqs_helper_session.send_message(message)
     time_taken = (int(time.time() * 1000.0) - start)
-    logger.info(f'[Submit File]: Completed in {time_taken}ms')
+    logger.info(f'Submit File Completed in {time_taken}ms')
     response_message = f"{result} Response Time : {time_taken} ms"
 
     return response_body

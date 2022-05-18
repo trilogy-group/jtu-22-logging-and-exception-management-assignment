@@ -20,7 +20,7 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
 def log_db_table_operation(res, operation):
     response_code = res['ResponseMetadata']['HTTPStatusCode']
     logger.info(
-        f'[DBHelper]: Performed `{operation.__name__}` operation on table with reponse code: {response_code}')
+        f'Performed `{operation.__name__}` operation on table with reponse code: {response_code}')
 
 
 class DBHelper:
