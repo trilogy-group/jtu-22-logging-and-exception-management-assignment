@@ -93,8 +93,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     model = obj['adf']['prospect']['vehicle']['model']
     logger.info(f'Details:> dealer_available: {dealer_available}, email: {email}, phone: {phone}, last_name: {last_name}, make: {make}, model: {model}')
 
-    logger.info
-
     fetched_oem_data = {}
 
     # check if 3PL is making a duplicate call or it is a duplicate lead
@@ -162,8 +160,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
 
-    t3 = [int(time.time() * 1000.0)]
-    logger.info(f'time taken for enriching the lead and running ML model: {t3 - t2}ms')
+    t1 = [int(time.time() * 1000.0)]
+    logger.info(f'time taken for enriching the lead and running ML model: {t1 - t2}ms')
     # create the response
     response_body = {}
     if result >= oem_threshold:
