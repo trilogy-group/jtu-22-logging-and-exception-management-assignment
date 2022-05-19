@@ -52,7 +52,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
         try : 
-            raise HTTPException(status_code=404, detail="/'lead_uuid/' not in body or /'converted/' not in body not found")
+            raise HTTPException(status_code=400, detail="Body has invalid parameters.")
         except : 
             logging.error(' ',exc_info = True)
         pass
@@ -64,7 +64,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if role != "OEM":
         # throw proper HTTPException
         try : 
-            raise HTTPException(status_code=444, detail="role not equal to OEM")
+            raise HTTPException(status_code=401, detail="role not equal to OEM")
         except : 
             logging.error(' ',exc_info = True)
         pass
@@ -80,7 +80,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     else:
         # throw proper HTTPException
         try : 
-            raise HTTPException(status_code=445, detail="lead conversions not updated")
+            raise HTTPException(status_code=400, detail="lead conversions not updated")
         except : 
             logging.error(' ',exc_info = True)
         pass
