@@ -17,6 +17,8 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+logging.basicConfig(filename = 'logs.log' , level = logging.INFO , format = '%(asctime)s : %(filename)s : %(lineno)d :: %(levelno)s : %(message)s')
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -42,11 +44,17 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
+
+    logging.info('Submitting file')
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
+        try : 
+            raise HTTPException(status_code=400, detail="Body has invalid parameters.")
+        except : 
+            logging.error(' ',exc_info = True)
         pass
         
     lead_uuid = body['lead_uuid']
@@ -55,6 +63,10 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         # throw proper HTTPException
+        try : 
+            raise HTTPException(status_code=401, detail="role not equal to OEM")
+        except : 
+            logging.error(' ',exc_info = True)
         pass
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
@@ -67,4 +79,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         # throw proper HTTPException
+        try : 
+            raise HTTPException(status_code=400, detail="lead conversions not updated")
+        except : 
+            logging.error(' ',exc_info = True)
         pass

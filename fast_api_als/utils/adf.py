@@ -39,8 +39,11 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try : 
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except Exception as e : 
+        logging.error("XML Parsing failed.\n", exc_info = True)
 
 
 def validate_adf_values(input_json):

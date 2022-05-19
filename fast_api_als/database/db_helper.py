@@ -16,6 +16,12 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+logging.basicConfig(filename = 'logs.log' , level = logging.INFO , format = '%(asctime)s : %(filename)s : %(lineno)d :: %(levelno)s : %(message)s')
+
+def HTTPStatusCode_Log(res) : 
+    logging.debug('HTTPStatusCode : {}'.format(res['ResponseMetadata']['HTTPStatusCode']))
+
+logging.info('New session started or file switched.')
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -38,7 +44,19 @@ class DBHelper:
             'response': response,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
-        res = self.table.put_item(Item=item)
+
+        logging.info('Inserting lead...')
+
+        try:
+            res = self.table.put_item(Item=item)
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+
+            
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -64,15 +82,42 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
 
-        res = self.table.put_item(Item=item)
+''' log block '''
+        logging.info('Inserting oem lead...')
+
+        try:
+            res = self.table.put_item(Item=item)
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+                logging.debug('res json object passes :\n {}'.format(res))
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+            logging.debug('Item tried to insert :\n {}'.format(item))
+''''''
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
-        res = self.table.get_item(
+        
+
+        ''' log block '''
+        logging.info('Checking duplicate api call...')
+
+        try:
+            res = self.table.get_item(
             Key={
                 'pk': f"LEAD#{lead_hash}",
                 'sk': lead_provider
             }
-        )
+            )
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+                logging.debug('res json object passes :\n {}'.format(res))
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+''''''
         item = res.get('Item')
         if not item:
             return {
@@ -90,13 +135,29 @@ class DBHelper:
             }
 
     def accepted_lead_not_sent_for_oem(self, oem: str, date: str):
-        res = self.table.query(
+        
+''' log block '''
+        logging.info('Checking for unsent accepted leads...')
+
+        try:
+            res = self.table.query(
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
-        )
+            )
 
-        return res.get('Items', [])
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+                logging.debug('res json object passes :\n {}'.format(res))
+            finally :
+                return res.get('Items', [])
+
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+''''''
+        
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
         res = self.table.get_item(
@@ -108,7 +169,21 @@ class DBHelper:
         if not item:
             return False
         item['gsisk'] = "1#0"
-        res = self.table.put_item(Item=item)
+
+''' log block '''
+        logging.info('update lead sent status...')
+
+        try:
+            res = self.table.put_item(Item=item)
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+                logging.debug('res json object passes :\n {}'.format(res))
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+            logging.debug('Item tried to insert :\n {}'.format(item))
+''''''
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +193,9 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+
+        HTTPStatusCode_Log(res)
+
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,6 +205,8 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+
+        HTTPStatusCode_Log(res)
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -136,6 +216,8 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+
+        HTTPStatusCode_Log(res)
         item = res['Items']
         if len(item) == 0:
             return None
@@ -151,6 +233,9 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        
+        HTTPStatusCode_Log(res)
+
         return apikey
 
     def register_3PL(self, username: str):
@@ -158,6 +243,9 @@ class DBHelper:
             KeyConditionExpression=Key('pk').eq(username)
         )
         item = res.get('Items', [])
+
+        HTTPStatusCode_Log(res)
+
         if len(item):
             return None
         return self.set_auth_key(username)
@@ -166,6 +254,7 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
+        HTTPStatusCode_Log(res)
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -174,6 +263,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        HTTPStatusCode_Log(res)
         if 'Item' not in res:
             return {}
         if parallel:
@@ -195,6 +285,8 @@ class DBHelper:
             }
         )
 
+        HTTPStatusCode_Log(res)
+
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
             Key={
@@ -202,6 +294,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+
+        HTTPStatusCode_Log(res)
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -213,6 +307,8 @@ class DBHelper:
                 }
             )
 
+            HTTPStatusCode_Log(res)
+
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
         if item == {}:
@@ -221,6 +317,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        HTTPStatusCode_Log(res)
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -287,14 +384,28 @@ class DBHelper:
             'model': model,
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
-        res = self.table.put_item(Item=item)
+
+        ''' log block '''
+        logging.info('Inserting customer lead...')
+
+        try:
+            res = self.table.put_item(Item=item)
+            try :
+                HTTPStatusCode_Log(res)
+            except Exception as e: 
+                logging.error('HTTPStatusCode could not be logged.' , exc_info = True)
+                logging.debug('res json object passes :\n {}'.format(res))
+        except Exception as e :
+            logging.error('Did not get res json object' , exc_info = True)
+            logging.debug('Item tried to insert :\n {}'.format(item))
+''''''
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
         if self.get_make_model_filter_status(make):
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
-            )
+            )            
             if len(res['Items']):
                 lead_exist = True
         else:
