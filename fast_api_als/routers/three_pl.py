@@ -38,7 +38,7 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     logging.info('viewinf authkey...')
     if role != "ADMIN" and role != "3PL":
         try : 
-            raise HTTPException(status_code=412, detail="Precondition failed! Role niether ADMIN nor 3PL")
+            raise HTTPException(status_code=401, detail="Precondition failed! Role neither ADMIN nor 3PL")
         except : 
             logging.error(' ',exc_info = True)
         pass
