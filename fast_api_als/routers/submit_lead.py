@@ -41,7 +41,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
         try : 
-            raise HTTPException(status_code=446, detail="api_key not verified")
+            raise HTTPException(status_code=401, detail="api_key not verified")
         except : 
             logging.error(' ',exc_info = True)
         pass
