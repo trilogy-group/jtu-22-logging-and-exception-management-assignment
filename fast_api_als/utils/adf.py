@@ -3,7 +3,7 @@ from jsonschema import validate, draft7_format_checker
 import logging
 from uszipcode import SearchEngine
 import re
-
+logging.basicConfig(format='%(levelname)s %(asctime)s %(message)s')
 
 
 # ISO8601 datetime regex
@@ -38,9 +38,13 @@ def is_nan(x):
 
 
 def parse_xml(adf_xml):
-    # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except:
+        logging.error("Error in parsing adf_xml")
+        raise Exception("Error in parsing adf_xml")
+    
 
 
 def validate_adf_values(input_json):
@@ -95,7 +99,8 @@ def check_validation(input_json):
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
             return False, response['code'], response['message']
+        logging.info("check validation successfull")
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
