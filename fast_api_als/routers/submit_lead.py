@@ -59,13 +59,16 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if xml was not parsable, if not return
     if not obj:
+        logger.info("Getting the API Key")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
                 'service': provider
             }
         }
+        logger.info("Executing creat_quicksight_data function")
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
+        logger.info("Create_quicksight_data successfully executed")
         s3_helper_client.put_file(item, path)
         logger.error("XML is not parsable and error occured")
         return {
