@@ -9,6 +9,7 @@ from fast_api_als.constants import (
     ALS_DATA_TOOL_REQUEST_KEY)
 
 """
+
 How can you write log to understand what's happening in the code?
 You also trying to undderstand the execution time factor.
 """
