@@ -16,19 +16,47 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+# Creating and configuring logger
+logging.basicConfig(filename="newFile.log",
+                    format='%(asctime)s %(message)s', filemode='w')
+
+# Creating an object logger
+logger = logging.getLogger()
+
+# Setting the threshold of logger to DEBUG
+logger.setLevel(logging.DEBUG)
+
+# function table log which is used to log all the response code for the self.table function
+
+
+def table_log(res, operationPerformed):
+    http_code = res['ResponseMetadata']['HTTPStatusCode']
+    logger.info(
+        f"Method type: {operationPerformed}, Response Code: {http_code}")
+
+# function successMessage is used to log success message after successful execution of respective function
+
+
+def successMessage(funName):
+    logger.info(f"def db_helper:def {funName}: This function ran successfully")
+
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
         self.session = session
-        self.ddb_resource = session.resource('dynamodb', config=botocore.client.Config(max_pool_connections=99))
+        self.ddb_resource = session.resource(
+            'dynamodb', config=botocore.client.Config(max_pool_connections=99))
         self.table = self.ddb_resource.Table(constants.DB_TABLE_NAME)
         self.geo_data_manager = self.get_geo_data_manager()
         self.dealer_table = self.ddb_resource.Table(constants.DEALER_DB_TABLE)
         self.get_api_key_author("Initialize_Connection")
+        successMessage('__init__')
 
     def get_geo_data_manager(self):
-        config = dynamodbgeo.GeoDataManagerConfiguration(self.session.client('dynamodb', config=botocore.client.Config(max_pool_connections=99)), constants.DEALER_DB_TABLE)
+        config = dynamodbgeo.GeoDataManagerConfiguration(self.session.client(
+            'dynamodb', config=botocore.client.Config(max_pool_connections=99)), constants.DEALER_DB_TABLE)
         geo_data_manager = dynamodbgeo.GeoDataManager(config)
+        successMessage('get_geo_data_manager')
         return geo_data_manager
 
     def insert_lead(self, lead_hash: str, lead_provider: str, response: str):
@@ -39,6 +67,8 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        table_log(res, 'put_item')
+        successMessage('insert_lead')
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +95,8 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        table_log(res, 'put_item')
+        successMessage('insert_oem_lead')
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,7 +105,9 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        table_log(res, 'get_item')
         item = res.get('Item')
+        successMessage('check_duplicate')
         if not item:
             return {
                 "Duplicate_Api_Call": {
@@ -93,8 +127,11 @@ class DBHelper:
         res = self.table.query(
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
-                                   & Key('gsisk').begins_with("0#0")
+            & Key('gsisk').begins_with("0#0")
         )
+
+        table_log(res, 'query')
+        successMessage('accepted_lead_not_sent_for_oem')
 
         return res.get('Items', [])
 
@@ -104,11 +141,14 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        table_log(res, 'get_item')
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
+        table_log(res, 'put_item')
+        successMessage('update_lead_sent_status')
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +158,8 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        table_log(res, 'get_item')
+        successMessage('get_make_model_filter_status')
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,7 +169,9 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        table_log(res, 'query')
         item = res.get('Items', [])
+        successMessage('verify_api_key')
         if len(item) == 0:
             return False
         return True
@@ -136,7 +180,9 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        table_log(res, 'query')
         item = res['Items']
+        successMessage('get_auth_key')
         if len(item) == 0:
             return None
         return item[0]['sk']
@@ -151,13 +197,17 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        table_log(res, 'put_item')
+        successMessage('set_auth_key')
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        table_log(res, 'query')
         item = res.get('Items', [])
+        successMessage('register_3PL')
         if len(item):
             return None
         return self.set_auth_key(username)
@@ -167,6 +217,9 @@ class DBHelper:
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
 
+        table_log(res, 'put_item')
+        successMessage('set_make_model_oem')
+
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
             Key={
@@ -174,6 +227,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        table_log(res, 'get_item')
+        successMessage('fetch_oem_data')
         if 'Item' not in res:
             return {}
         if parallel:
@@ -194,6 +249,8 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        table_log(res, 'put_item')
+        successMessage('create_new_oem')
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +259,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        table_log(res, 'delete_item')
+        successMessage('delete_oem')
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +271,8 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            table_log(res, 'delete_item')
+        successMessage('delete_3PL')
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -221,6 +282,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        successMessage('set_oem_threshold')
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -254,6 +316,7 @@ class DBHelper:
                 }
             }
         }
+        successMessage('fetch_nearest_dealer')
         return dealer
 
     def get_dealer_data(self, dealer_code: str, oem: str):
@@ -261,12 +324,14 @@ class DBHelper:
             return {}
         res = self.dealer_table.query(
             IndexName='dealercode-index',
-            KeyConditionExpression=Key('dealerCode').eq(dealer_code) & Key('oem').eq(oem)
+            KeyConditionExpression=Key('dealerCode').eq(
+                dealer_code) & Key('oem').eq(oem)
         )
         res = res['Items']
         if len(res) == 0:
             return {}
         res = res[0]
+        successMessage('get_dealer_data')
         return {
             'postalcode': res['dealerZip'],
             'rating': res['Rating'],
@@ -288,21 +353,27 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        table_log(res, 'put_item')
+        successMessage('insert_customer_lead')
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
         if self.get_make_model_filter_status(make):
             res = self.table.query(
-                KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
+                KeyConditionExpression=Key('pk').eq(
+                    f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            table_log(res, 'query')
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            table_log(res, 'query')
             if len(res['Items']):
                 lead_exist = True
+        successMessage('lead_exists')
         return lead_exist
 
     def check_duplicate_lead(self, email: str, phone: str, last_name: str, make: str, model: str):
@@ -310,15 +381,19 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        table_log(email_attached_leads, 'query')
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
-        customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
+        table_log(phone_attached_leads, 'query')
+        customer_leads = email_attached_leads['Items'] + \
+            phone_attached_leads['Items']
 
         for item in customer_leads:
             if self.lead_exists(item['pk'], make, model):
                 return {"Duplicate_Lead": True}
+        successMessage('check_duplicate_lead')
         return {"Duplicate_Lead": False}
 
     def get_api_key_author(self, apikey):
@@ -326,15 +401,18 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        table_log(res, 'query')
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
+        successMessage('get_api_key_author')
         return item[0].get("pk", "unknown")
 
     def update_lead_conversion(self, lead_uuid: str, oem: str, converted: int):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
+        table_log(res, 'query')
         items = res.get('Items')
         if len(items) == 0:
             return False, {}
@@ -343,6 +421,8 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
+        table_log(res, 'put_item')
+        successMessage('update_lead_conversion')
         return True, item
 
 
@@ -351,6 +431,7 @@ def verify_response(response_code):
         pass
     else:
         pass
+    successMessage('verify_response')
 
 
 session = get_boto3_session()
