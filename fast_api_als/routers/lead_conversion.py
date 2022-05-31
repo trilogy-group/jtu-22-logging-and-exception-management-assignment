@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -16,6 +16,8 @@ router = APIRouter()
 """
 write proper logging and exception handling
 """
+
+logger = logging.getLogger(__name__)
 
 def get_quicksight_data(lead_uuid, item):
     """
@@ -42,29 +44,40 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
-    body = await file.body()
-    body = json.loads(str(body, 'utf-8'))
+    try:
+        body = await file.body()
+        body = json.loads(str(body, 'utf-8'))
+        logger.info('Body of request parsed successfully')
+    except json.JSONDecodeError as jde:
+        logger.error(f'Decoding of JSON failed as passed file is not a valid JSON document: {jde}')
+    except Exception as e:
+        logger.error(f'Failed to load file body due to {e}')
+
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        if 'lead_uuid' not in body:
+            raise HTTPException(status_code=400, detail="lead_uuid field not found in body")
+        else:
+            raise HTTPException(status_code=400, detail="converted field not found in body")
+
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logger.error(f'Attempt to call submit by user having token: {token} failed as user does not have role OEM')
+        raise HTTPException(status_code=401, detail="User with role not OEM is not authorised to submit")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logger.info(f'File submitted by lead_uuid: {lead_uuid}')
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logger.error(f'Attempt to call submit by user having token: {token}, lead_uuid: {lead_uuid} and item: {item} failed due to failed lead conversion')
+        raise HTTPException(status_code=500, detail='Lead Conversion failed')

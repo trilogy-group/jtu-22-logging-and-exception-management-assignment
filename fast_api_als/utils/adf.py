@@ -4,7 +4,7 @@ import logging
 from uszipcode import SearchEngine
 import re
 
-
+logger = logging.getLogger(__name__)
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -29,7 +29,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logger.warning(f'validate_iso8601 called with requestdate: {requestdate}')
     return False
 
 
@@ -39,11 +39,16 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except Exception as e:
+        logger.error(f'xml parse error {e} for adf_xml: {adf_xml}')
+        raise ValueError('Invalid XML passed in adf_xml')
 
 
 def validate_adf_values(input_json):
+    logger.info(f'Validate_adf_values called with {input_json}')
     input_json = input_json['adf']['prospect']
     zipcode = input_json['customer']['contact']['address']['postalcode']
     email = input_json['customer']['contact'].get('email', None)
@@ -59,26 +64,32 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logger.info('input_json missing first_name or last_name field')
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logger.info('input_json missing both email and phone fields')
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        logger.info('input_json contains invalid postalcode field')
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
     tcpa_consent = False
     for id in input_json['id']:
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
+            logger.info(f'tcpa_consent is true for id: {id}')
             tcpa_consent = True
     if not email and not tcpa_consent:
+        logger.info(f'input_json missing email or does not have TCPA consent')
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logger.info('input_json has missing or invalid format requestdate field')
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
     return {"status": "OK"}
