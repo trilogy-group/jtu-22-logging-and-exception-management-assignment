@@ -43,7 +43,8 @@ def parse_xml(adf_xml):
         obj = xmltodict.parse(adf_xml)
         return obj
     except Exception as e:
-        logger.info(f'xml parse error {e} for adf_xml: {adf_xml}')
+        logger.error(f'xml parse error {e} for adf_xml: {adf_xml}')
+        raise ValueError('Invalid XML passed in adf_xml')
 
 
 def validate_adf_values(input_json):
