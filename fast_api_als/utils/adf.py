@@ -1,6 +1,7 @@
 import xmltodict
 from jsonschema import validate, draft7_format_checker
 import logging
+from base_logger import logger
 from uszipcode import SearchEngine
 import re
 
@@ -29,7 +30,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logging.error(f"The requested date {requestdate} is not in ISO8601 format.")
     return False
 
 
@@ -38,9 +39,12 @@ def is_nan(x):
 
 
 def parse_xml(adf_xml):
-    # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except:
+        logging.error(f"Failed to parse the input xml: {adf_xml}")
+        return None
 
 
 def validate_adf_values(input_json):
@@ -59,14 +63,17 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logging.error(f"Incomplete name: {first_name} {last_name}")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logging.error(f"Phone or email missing")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+         logging.error(f"Invalid zipcode {zipcode}.")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -75,12 +82,15 @@ def validate_adf_values(input_json):
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
     if not email and not tcpa_consent:
+        logging.error(f"Email and TCP consent missing")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logging.error(f"Invalid DateTime. {requestdate} is not in ISO8601 format")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
+    logging.info("ADF values validated.")
     return {"status": "OK"}
 
 
