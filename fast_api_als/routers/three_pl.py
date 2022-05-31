@@ -18,6 +18,8 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
         body = await request.body()
         body = json.loads(body)
         logger.info('Body of request parsed successfully')
+    except json.JSONDecodeError as jde:
+        logger.error(f'Decoding of JSON failed as passed file is not a valid JSON document: {jde}')
     except Exception as e:
         logger.error(f'Parsing of body failed due to {e}')
 
@@ -41,6 +43,8 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
         body = await request.body()
         body = json.loads(body)
         logger.info('Body of request parsed successfully')
+    except json.JSONDecodeError as jde:
+        logger.error(f'Decoding of JSON failed as passed file is not a valid JSON document: {jde}')
     except Exception as e:
         logger.error(f'Parsing of body failed due to {e}')
     

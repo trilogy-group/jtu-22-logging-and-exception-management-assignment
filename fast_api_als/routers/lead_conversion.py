@@ -47,6 +47,9 @@ async def submit(file: Request, token: str = Depends(get_token)):
     try:
         body = await file.body()
         body = json.loads(str(body, 'utf-8'))
+        logger.info('Body of request parsed successfully')
+    except json.JSONDecodeError as jde:
+        logger.error(f'Decoding of JSON failed as passed file is not a valid JSON document: {jde}')
     except Exception as e:
         logger.error(f'Failed to load file body due to {e}')
 
