@@ -14,6 +14,7 @@ You also trying to undderstand the execution time factor.
 """
 
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
+    start_time = time.time()
     if value == '':
         return
     async with httpx.AsyncClient() as client:  # 3
@@ -21,8 +22,10 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
 
     r = response.json()
     data[topic] = r
-    
+    time_taken = int((time.time() - start_time) * 1000)
+    logging.info("%s and %s validated in %.2fms", value, topic, time_taken)
 
+    
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     email_validation_url = '{}?Method={}&RequestKey={}&EmailAddress={}&OutputFormat=json'.format(
         ALS_DATA_TOOL_SERVICE_URL,
@@ -48,4 +51,10 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+    
+    time_taken = int((time.time() - start_time) * 1000)
+    if not email_valid or not phone_valid:
+        logging.error("Email : %s verified : %s, Phone : %s verified : %s in %.2fms", email, email_valid, phone, phone_valid, time_taken)
+    else:
+        logging.info("Email : %s verified : %s, Phone : %s verified : %s in %.2fms", email, email_valid, phone, phone_valid, time_taken)
     return email_valid | phone_valid
