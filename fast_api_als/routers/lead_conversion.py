@@ -1,5 +1,6 @@
+from email.policy import HTTP
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -46,16 +47,18 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        if 'lead_uuid' not in body:
+            raise HTTPException(status_code=400, detail="lead_uuid field not found in body")
+        else:
+            raise HTTPException(status_code=400, detail="converted field not found in body")
+
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=401, detail="User with role not OEM is not authorised to submit")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +69,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=500, detail='Lead Conversion failed')
