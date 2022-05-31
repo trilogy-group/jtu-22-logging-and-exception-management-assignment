@@ -43,18 +43,18 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     phone_valid = False
     data = {}
 
-    logger.info(f'Email validation URL: {email_validation_url}')
-    logger.info(f'Phone validation URL: {phone_validation_url}')
+    logger.debug(f'Email validation URL: {email_validation_url}')
+    logger.debug(f'Phone validation URL: {phone_validation_url}')
 
 
-    logger.info('Validation service called')
+    logger.debug('Validation service called')
     start_time = int(time.time() * 1000.0)
     await asyncio.gather(
         call_validation_service(email_validation_url, "email", email, data),
         call_validation_service(phone_validation_url, "phone", phone_number, data),
     )
     end_time = int(time.time() * 1000.0)
-    logger.info(f'Total time taken by validation service: {end_time - start_time}')
+    logger.info(f'Total time taken by validation service: {end_time - start_time}ms')
 
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):
