@@ -86,7 +86,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
-        logger.info('Submit failed due to validation error')
+        logger.info(f'Submit failed due to validation error with code: {validation_code} and message: {validation_message}')
         return {
             "status": "REJECTED",
             "code": validation_code,
