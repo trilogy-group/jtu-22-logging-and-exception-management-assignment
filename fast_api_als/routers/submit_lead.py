@@ -31,18 +31,32 @@ You as a developer has to find how much time each part of code takes.
 you will get the idea about the part when you go through the code.
 """
 
+logger = logging.getLogger(__name__)
+
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
+    logger.info(f'Submit request by APIKey: {APIKey}')
     start = int(time.time() * 1000.0)
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
         raise HTTPException(status_code=401, detail='API Key of request is not authorised to submit')
     
-    body = await file.body()
-    body = str(body, 'utf-8')
+    try:
+        start_time = int(time.time() * 1000.0)
+        body = await file.body()
+        body = str(body, 'utf-8')
+        end_time = int(time.time() * 1000.0)
+        time_taken = end_time - start_time
+        logger.info(f'Time taken to load file body is: {time_taken}')
+    except Exception as e:
+        logger.error(f'Failed to load file body due to {e}')
 
+    start_time = int(time.time() * 1000.0)
     obj = parse_xml(body)
+    end_time = int(time.time() * 1000)
+    time_taken = end_time - start_time
+    logger.info(f'Time taken to parse the xml body: {time_taken}')
 
     # check if xml was not parsable, if not return
     if not obj:
@@ -54,6 +68,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logger.info('Submit failed due to error in parsing XML')
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -69,6 +84,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logger.info('Submit failed due to validation error')
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -94,11 +110,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                logger.info('Submit aborted as it is a duplicate api call')
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logger.info('Submit aborted as it is a duplicate lead')
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -107,12 +125,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logger.info('Submit failed due to empty fetched oem data')
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logger.info('Submit failed due to missing threshold field in fetched oem data')
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -128,6 +148,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                                                                 lon=lon)
         obj['adf']['prospect']['vendor'] = nearest_vendor
         dealer_available = True if nearest_vendor != {} else False
+        if dealer_available:
+            logger.info(f'Updated dealer to the nearest vendor {nearest_vendor} as original dealer was not available')
+        else:
+            logger.info(f'Original dealer is not available and updation to nearest vendor failed')
 
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
@@ -138,12 +162,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
 
+    logger.info(f'Lead obtained score: {result}')
+
     # create the response
     response_body = {}
     if result >= oem_threshold:
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
     else:
+        logger.info(f'Submit failed as {result} is less than {oem_threshold}')
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
@@ -151,6 +178,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logger.info(f'Submit failed as contact information is not verified')
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -195,7 +223,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+            logger.info(f'File submitted successfully with response: {res}')
+        except Exception as e:
+            logger.error(f'File submission failed due to {e}')
 
     else:
         message = {
@@ -209,9 +241,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'response': response_body['status']
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+            logger.info(f'Submit request rejected successfully with response: {res}')
+        except Exception as e:
+            logger.error(f'Failed to send message for rejected request due to {e}')
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
+
+    logger.info(response_message)
 
     return response_body
