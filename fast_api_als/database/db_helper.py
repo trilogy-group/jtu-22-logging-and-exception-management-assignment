@@ -1,3 +1,4 @@
+from urllib.error import HTTPError
 import uuid
 import logging
 import time
@@ -348,7 +349,7 @@ class DBHelper:
 
 def verify_response(response_code):
     if not response_code == 200:
-        pass
+        raise HTTPError(code=response_code, msg="Response could not be verified")
     else:
         pass
 
