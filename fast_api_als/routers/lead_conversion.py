@@ -66,6 +66,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     oem, role = get_user_role(token)
     if role != "OEM":
+        logger.error(f'Attempt to call submit by user having token: {token} failed as user does not have role OEM')
         raise HTTPException(status_code=401, detail="User with role not OEM is not authorised to submit")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
@@ -78,4 +79,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
+        logger.error(f'Attempt to call submit by user having token: {token}, lead_uuid: {lead_uuid} and item: {item} failed due to failed lead conversion')
         raise HTTPException(status_code=500, detail='Lead Conversion failed')
