@@ -42,15 +42,17 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not db_helper_session.verify_api_key(apikey):
         raise HTTPException(status_code=401, detail='API Key of request is not authorised to submit')
     
+    start_time = int(time.time() * 1000.0)
+
     try:
-        start_time = int(time.time() * 1000.0)
         body = await file.body()
         body = str(body, 'utf-8')
-        end_time = int(time.time() * 1000.0)
-        time_taken = end_time - start_time
-        logger.info(f'Time taken to load file body is: {time_taken}')
     except Exception as e:
         logger.error(f'Failed to load file body due to {e}')
+
+    end_time = int(time.time() * 1000.0)
+    time_taken = end_time - start_time
+    logger.info(f'Time taken to load file body is: {time_taken}')
 
     start_time = int(time.time() * 1000.0)
     obj = parse_xml(body)

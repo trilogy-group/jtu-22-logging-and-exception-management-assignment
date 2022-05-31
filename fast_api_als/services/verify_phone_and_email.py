@@ -21,6 +21,8 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     async with httpx.AsyncClient() as client:  # 3
         try:
             response = await client.get(url)
+        except httpx.RequestError as re:
+            logger.error(f'Error occurred while requesting {re.request.url}')
         except Exception as e:
             logger.error(f'Get request failed for url: {url} due to {e}')
 
