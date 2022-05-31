@@ -1,3 +1,4 @@
+import logging
 import time
 
 from fastapi import FastAPI
@@ -36,3 +37,12 @@ def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
     return {f"Pong with response time {time_taken} ms"}
+
+def main():
+    # setting up global logging configuration with threshold level = INFO and truncate on restart
+    FORMAT = '%(name)s %(asctime)s %(levelname)s:%(message)s'
+    logging.basicConfig(format=FORMAT, level=logging.INFO, filename='fast_api_als.log', filemode='w')
+
+
+if __name__ == '__main__':
+    main()
