@@ -12,6 +12,8 @@ from fast_api_als.constants import (
 How can you write log to understand what's happening in the code?
 You also trying to undderstand the execution time factor.
 """
+start_time = time.time()
+
 
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
     if value == '':
@@ -21,6 +23,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
 
     r = response.json()
     data[topic] = r
+    logging.info(f'{topic} with value {value} validated | time taken: {time.time() - start_time}')
     
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
@@ -48,4 +51,9 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+    
+    if("email" in data or "phone" in data):
+        logging.info(f'email: {email} and phone_number: {phone_number} verified | time taken: {time.time() - start_time}')
+    else:
+        logging.error(f'email: {email} and phone_number: {phone_number} not verified | time taken: {time.time() - start_time}')
     return email_valid | phone_valid
