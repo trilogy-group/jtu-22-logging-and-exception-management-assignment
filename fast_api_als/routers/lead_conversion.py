@@ -17,6 +17,8 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+logger = logging.getLogger(__name__)
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -42,8 +44,12 @@ def get_quicksight_data(lead_uuid, item):
 
 @router.post("/conversion")
 async def submit(file: Request, token: str = Depends(get_token)):
-    body = await file.body()
-    body = json.loads(str(body, 'utf-8'))
+    try:
+        body = await file.body()
+        body = json.loads(str(body, 'utf-8'))
+    except Exception as e:
+        logger.error(f'Failed to load file body due to {e}')
+
 
     if 'lead_uuid' not in body or 'converted' not in body:
         if 'lead_uuid' not in body:
@@ -63,6 +69,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
+        logger.info(f'File submitted by lead_uuid: {lead_uuid}')
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"
