@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from fastapi import Request, Depends
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+from fastapi import HTTPException
 from fast_api_als.services.authenticate import get_api_key
 from fast_api_als.services.enrich.customer_info import get_contact_details
 from fast_api_als.services.enrich.demographic_data import get_customer_coordinate
@@ -38,7 +38,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
+        raise HTTPException(status_code=500, detail="Wrong API key")
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -55,6 +55,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logging.error(f'error occured while parsing {apikey}')
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -70,6 +71,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logging.error(f'Rejected validation_code: {validation_code}')
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -95,11 +97,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                logging.error(f'Duplicate API Call')
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logging.error(f'Duplicate Lead')
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -108,12 +112,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logging.error(f'OEM Data not found, fetched_oem_data empty')
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logging.error(f'OEM Data not found')
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -123,12 +129,18 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logging.info('dealer not available, finding nearest dealer')
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
                                                                 lon=lon)
         obj['adf']['prospect']['vendor'] = nearest_vendor
-        dealer_available = True if nearest_vendor != {} else False
+        if nearest_vendor !={}:
+            dealer_available = True
+            logging.info("Dealer Found")
+        else:
+            dealer_available = False
+            logging.error("Dealer not found")
 
     # enrich the lead
     model_input = get_enriched_lead_json(obj)
