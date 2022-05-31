@@ -3,7 +3,7 @@ import uuid
 import logging
 
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request, Depends
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,8 +37,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
-        # throw proper fastpi.HTTPException
-        pass
+        raise HTTPException(status_code=401, detail='API Key of request is not authorised to submit')
     
     body = await file.body()
     body = str(body, 'utf-8')
