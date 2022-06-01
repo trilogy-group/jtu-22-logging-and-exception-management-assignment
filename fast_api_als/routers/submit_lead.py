@@ -55,11 +55,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'service': provider
             }
         }
+
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
-        upload_start = time.time()
-        s3_helper_client.put_file(item, path)
-        upload_time_taken = (time.time() - upload_start) * 1000
-        logger.info(f"Data uploaded in {upload_time_taken}ms")
+        try:
+            upload_start = time.time()
+            s3_helper_client.put_file(item, path)
+            upload_time_taken = (time.time() - upload_start) * 1000
+            logger.info(f"Data uploaded in {upload_time_taken}ms")
+        except Exception as e:
+            logger.error(f"Error occurred while uploading item to S3: {e.message}")
         time_taken = (time.time() - start_time) * 1000
         logger.info(f"Submit request completed in {time_taken}ms")
         return {
@@ -80,10 +84,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         logger.info("adf xml is invalid")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
-        upload_start = time.time()
-        s3_helper_client.put_file(item, path)
-        upload_time_taken = (time.time() - upload_start) * 1000
-        logger.info(f"Data uploaded in {upload_time_taken}ms")
+        try:
+            upload_start = time.time()
+            s3_helper_client.put_file(item, path)
+            upload_time_taken = (time.time() - upload_start) * 1000
+            logger.info(f"Data uploaded in {upload_time_taken}ms")
+        except Exception as e:
+            logger.error(f"Error occurred while uploading item to S3: {e.message}")
         time_taken = (time.time() - start_time) * 1000
         logger.info(f"Submit request completed for data in {time_taken}ms")
         return {
@@ -164,27 +171,34 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         dealer_available = True if nearest_vendor != {} else False
 
     # enrich the lead
-    logger.info("Enriching lead data for ML input")
-    start_time_enrich = time.time()
-    model_input = get_enriched_lead_json(obj)
-    enrich_time_taken = (time.time() - start_time_enrich) * 1000
-    logger.info(f"Lead data enriched in {enrich_time_taken}ms")
-        
+    try:
+        logger.info("Enriching lead data for ML input")
+        start_time_enrich = time.time()
+        model_input = get_enriched_lead_json(obj)
+        enrich_time_taken = (time.time() - start_time_enrich) * 1000
+        logger.info(f"Lead data enriched in {enrich_time_taken}ms")
+    except Exception as e:
+        logger.error(f"Error occurred while enriching lead data: {e.message}")
 
     # convert the enriched lead to ML input format
-    logger.info("Converting the enriched data to ML input format")
-    start_time_mlinput = time.time()
-    ml_input = conversion_to_ml_input(model_input, make, dealer_available)
-    mlinput_time_taken = (time.time() - start_time_mlinput) * 1000
-    logger.info(f"Completed data conversion to ML input format in {mlinput_time_taken}ms")
-        
+    try:
+        logger.info("Converting the enriched data to ML input format")
+        start_time_mlinput = time.time()
+        ml_input = conversion_to_ml_input(model_input, make, dealer_available)
+        mlinput_time_taken = (time.time() - start_time_mlinput) * 1000
+        logger.info(f"Completed data conversion to ML input format in {mlinput_time_taken}ms")
+    except Exception as e:
+        logger.error(f"Error occurred while converting lead data to ML format: {e.message}")
 
     # score the lead
-    logger.info("Scoring the lead data")
-    start_time_scoring = time.time()
-    result = score_ml_input(ml_input, make, dealer_available)
-    scoring_time_taken = (time.time() - start_time_scoring) * 1000
-    logger.info(f"Calculated score for lead data in {scoring_time_taken}ms")
+    try:
+        logger.info("Scoring the lead data")
+        start_time_scoring = time.time()
+        result = score_ml_input(ml_input, make, dealer_available)
+        scoring_time_taken = (time.time() - start_time_scoring) * 1000
+        logger.info(f"Calculated score for lead data in {scoring_time_taken}ms")
+    except Exception as e:
+        logger.error(f"Error occurred while scoring the lead data: {e.message}")
 
     # create the response
     response_body = {}
@@ -213,11 +227,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if response_body['status'] == 'ACCEPTED':
         logger.info(f"Response status: {response_body[status]}")
         logger.info(f"Creating model filter for {make}")
-        model_filter_start = time.time()
-        make_model_filter = db_helper_session.get_make_model_filter_status(make)
-        model_filter_time_taken = (time.time() - model_filter_start) * 1000
-        logger.info(f"Time taken to create model filter:{model_filter_time_taken}ms")
-        
+        try:
+            model_filter_start = time.time()
+            make_model_filter = db_helper_session.get_make_model_filter_status(make)
+            model_filter_time_taken = (time.time() - model_filter_start) * 1000
+            logger.info(f"Time taken to create model filter:{model_filter_time_taken}ms")
+        except Exception as e:
+            logger.error(f"Error occurred while creating model filter for lead {lead_uuid}: {e.message}")    
         message = {
             'put_file': {
                 'item': item,
@@ -253,8 +269,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         logger.info("Inserting message into sqs queue")
-        res = sqs_helper_session.send_message(message)
-        
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logger.error(f"Error occurred while inserting lead with uuid {lead_uuid} into sqs: {e.message}")
 
     else:
         
@@ -269,11 +287,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'service': obj['adf']['prospect']['provider']['service'],
                 'response': response_body['status']
             }
-        }
-        
+        }        
         logger.info("Inserting message into sqs queue")
-        res = sqs_helper_session.send_message(message)
-
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logger.error(f"Error occurred while inserting lead with uuid {lead_uuid} into sqs: {e.message}")
 
     time_taken = (int(time.time() * 1000.0) - start)
     logger.info(f"Submit request completed in {time_taken}ms")
