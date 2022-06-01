@@ -33,7 +33,6 @@ def validate_iso8601(requestdate):
             return True
     except Exception as e:
         logging.error(f"Date validation failed for {requestdate}: {e.message}")
-    logging.info(f"Date validation unsuccessful for {requestdate}")
     return False
 
 
