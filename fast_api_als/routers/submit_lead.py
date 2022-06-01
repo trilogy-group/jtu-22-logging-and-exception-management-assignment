@@ -1,6 +1,6 @@
 import time
 import uuid
-import logging
+from fast_api_als.utils.logger import logger
 
 from datetime import datetime
 from fastapi import APIRouter
@@ -21,8 +21,6 @@ from fast_api_als.utils.quicksight_utils import create_quicksight_data
 from fast_api_als.quicksight.s3_helper import s3_helper_client
 from fast_api_als.utils.sqs_utils import sqs_helper_session
 
-logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
-
 router = APIRouter()
 
 """
@@ -39,7 +37,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
-        logging.error("Submit request terminated: API key verification failed")
+        logger.error("Submit request terminated: API key verification failed")
         raise HTTPException(status_code=401, detail="Invalid api key")
         pass
     
@@ -50,7 +48,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if xml was not parsable, if not return
     if not obj:
-        logging.info(f"XML parsing failed for {body}")
+        logger.info(f"XML parsing failed for {body}")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -61,33 +59,33 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         upload_start = time.time()
         s3_helper_client.put_file(item, path)
         upload_time_taken = (time.time() - upload_start) * 1000
-        logging.info(f"Data uploaded in {upload_time_taken}ms")
+        logger.info(f"Data uploaded in {upload_time_taken}ms")
         time_taken = (time.time() - start_time) * 1000
-        logging.info(f"Submit request completed in {time_taken}ms")
+        logger.info(f"Submit request completed in {time_taken}ms")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
     
-    logging.info("Calculating lead hash")
+    logger.info("Calculating lead hash")
     lead_hash = calculate_lead_hash(obj)
-    logging.info(f"Lead hash for data: {lead_hash}")
+    logger.info(f"Lead hash for data: {lead_hash}")
 
-    logging.info("Validating adf xml")
+    logger.info("Validating adf xml")
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
 
     #if not valid return
     if not validation_check:
-        logging.info("adf xml is invalid")
+        logger.info("adf xml is invalid")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         upload_start = time.time()
         s3_helper_client.put_file(item, path)
         upload_time_taken = (time.time() - upload_start) * 1000
-        logging.info(f"Data uploaded in {upload_time_taken}ms")
+        logger.info(f"Data uploaded in {upload_time_taken}ms")
         time_taken = (time.time() - start_time) * 1000
-        logging.info(f"Submit request completed for data in {time_taken}ms")
+        logger.info(f"Submit request completed for data in {time_taken}ms")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -96,7 +94,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if vendor is available here
     
-    logging.info("Checking for vendor availability")
+    logger.info("Checking for vendor availability")
 
     dealer_available = True if obj['adf']['prospect'].get('vendor', None) else False
     email, phone, last_name = get_contact_details(obj)
@@ -106,7 +104,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     fetched_oem_data = {}
 
     # check if 3PL is making a duplicate call or it is a duplicate lead
-    logging.info("Checking for duplicate calls or leads by 3PL")
+    logger.info("Checking for duplicate calls or leads by 3PL")
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = [executor.submit(db_helper_session.check_duplicate_api_call, lead_hash,
                                    obj['adf']['prospect']['provider']['service']),
@@ -116,38 +114,38 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
-                logging.info("Duplicate API call found")
+                logger.info("Duplicate API call found")
                 time_taken = (time.time() - start_time) * 1000
-                logging.info(f"Submit request completed for data in {time_taken}ms")
+                logger.info(f"Submit request completed for data in {time_taken}ms")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
-                logging.info("Duplicate lead found")
+                logger.info("Duplicate lead found")
                 time_taken = (time.time() - start_time) * 1000
-                logging.info(f"Submit request completed for data in {time_taken}ms")
+                logger.info(f"Submit request completed for data in {time_taken}ms")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
                     "message": "This is a duplicate lead"
                 }
             if "fetch_oem_data" in result:
-                logging.info("OEM data found")
+                logger.info("OEM data found")
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
-        logging.info("OEM data is empty")
+        logger.info("OEM data is empty")
         time_taken = (time.time() - start_time) * 1000
-        logging.info(f"Submit request completed for data in {time_taken}ms")
+        logger.info(f"Submit request completed for data in {time_taken}ms")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
-        logging.info("Threshold not found in OEM data")
+        logger.info("Threshold not found in OEM data")
         time_taken = (time.time() - start_time) * 1000
-        logging.info(f"Submit request completed for data in {time_taken}ms")
+        logger.info(f"Submit request completed for data in {time_taken}ms")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -156,7 +154,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     oem_threshold = float(fetched_oem_data['threshold'])
 
     # if dealer is not available then find nearest dealer
-    logging.info("Looking for nearest dealer")
+    logger.info("Looking for nearest dealer")
     if not dealer_available:
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
@@ -166,27 +164,27 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         dealer_available = True if nearest_vendor != {} else False
 
     # enrich the lead
-    logging.info("Enriching lead data for ML input")
+    logger.info("Enriching lead data for ML input")
     start_time_enrich = time.time()
     model_input = get_enriched_lead_json(obj)
     enrich_time_taken = (time.time() - start_time_enrich) * 1000
-    logging.info(f"Lead data enriched in {enrich_time_taken}ms")
+    logger.info(f"Lead data enriched in {enrich_time_taken}ms")
         
 
     # convert the enriched lead to ML input format
-    logging.info("Converting the enriched data to ML input format")
+    logger.info("Converting the enriched data to ML input format")
     start_time_mlinput = time.time()
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
     mlinput_time_taken = (time.time() - start_time_mlinput) * 1000
-    logging.info(f"Completed data conversion to ML input format in {mlinput_time_taken}ms")
+    logger.info(f"Completed data conversion to ML input format in {mlinput_time_taken}ms")
         
 
     # score the lead
-    logging.info("Scoring the lead data")
+    logger.info("Scoring the lead data")
     start_time_scoring = time.time()
     result = score_ml_input(ml_input, make, dealer_available)
     scoring_time_taken = (time.time() - start_time_scoring) * 1000
-    logging.info(f"Calculated score for lead data in {scoring_time_taken}ms")
+    logger.info(f"Calculated score for lead data in {scoring_time_taken}ms")
 
     # create the response
     response_body = {}
@@ -194,7 +192,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
     else:
-        logging.info("Score for lead data is less than OEM threshold")
+        logger.info("Score for lead data is less than OEM threshold")
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
@@ -202,23 +200,23 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
-            logging.info(f"Contact verification failed for email {email} phone {phone}")
+            logger.info(f"Contact verification failed for email {email} phone {phone}")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
     lead_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, email + phone + last_name + make + model))
-    logging.info(f"Generated lead uuid: {lead_uuid}")
+    logger.info(f"Generated lead uuid: {lead_uuid}")
     item, path = create_quicksight_data(obj['adf']['prospect'], lead_uuid, response_body['status'],
                                         response_body['code'], model_input)
     # insert the lead into ddb with oem & customer details
     # delegate inserts to sqs queue
     if response_body['status'] == 'ACCEPTED':
-        logging.info(f"Response status: {response_body[status]}")
-        logging.info(f"Creating model filter for {make}")
+        logger.info(f"Response status: {response_body[status]}")
+        logger.info(f"Creating model filter for {make}")
         model_filter_start = time.time()
         make_model_filter = db_helper_session.get_make_model_filter_status(make)
         model_filter_time_taken = (time.time() - model_filter_start) * 1000
-        logging.info(f"Time taken to create model filter:{model_filter_time_taken}ms")
+        logger.info(f"Time taken to create model filter:{model_filter_time_taken}ms")
         
         message = {
             'put_file': {
@@ -254,13 +252,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        logging.info("Inserting message into sqs queue")
+        logger.info("Inserting message into sqs queue")
         res = sqs_helper_session.send_message(message)
         
 
     else:
         
-        logging.info(f"Response status: {response_body[status]}")
+        logger.info(f"Response status: {response_body[status]}")
         message = {
             'put_file': {
                 'item': item,
@@ -273,12 +271,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         
-        logging.info("Inserting message into sqs queue")
+        logger.info("Inserting message into sqs queue")
         res = sqs_helper_session.send_message(message)
 
 
     time_taken = (int(time.time() * 1000.0) - start)
-    logging.info(f"Submit request completed in {time_taken}ms")
+    logger.info(f"Submit request completed in {time_taken}ms")
     response_message = f"{result} Response Time : {time_taken} ms"
 
     return response_body

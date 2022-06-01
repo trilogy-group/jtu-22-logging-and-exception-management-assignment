@@ -1,5 +1,4 @@
 import uuid
-import logging
 import time
 import boto3
 import botocore
@@ -7,10 +6,10 @@ from boto3.dynamodb.conditions import Key
 import dynamodbgeo
 from datetime import datetime, timedelta
 
+from fast_api_als.utils.logger import logger
 from fast_api_als import constants
 from fast_api_als.utils.boto3_utils import get_boto3_session
 
-logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
 
 """
     the self.table.some_operation(), return a json object and you can find the http code of the executed operation as this :
@@ -20,7 +19,7 @@ logging.basicConfig(format="%(levelname)s: %(asctime)s: %(message)s")
 """
 
 def DBlogger(res, message):
-    logging.info(f"DB: {message}, respose code: {res['ResponseMetadata']['HTTPStatusCode']}")
+    logger.info(f"DB: {message}, respose code: {res['ResponseMetadata']['HTTPStatusCode']}")
 
 
 class DBHelper:
@@ -381,9 +380,9 @@ class DBHelper:
 
 def verify_response(response_code):
     if not response_code == 200:
-        logging.info("Item could not be added to the database")
+        logger.info("Item could not be added to the database")
     else:
-        logging.info("Item added to the database successfully")
+        logger.info("Item added to the database successfully")
 
 
 session = get_boto3_session()
