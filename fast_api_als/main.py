@@ -1,4 +1,5 @@
 import time
+import fast_api_als.utils.logger import logger
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,4 +36,5 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
+    logger.info(f"Ping response time: {time_taken} ms")
     return {f"Pong with response time {time_taken} ms"}

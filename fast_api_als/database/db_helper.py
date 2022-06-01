@@ -1,5 +1,4 @@
 import uuid
-import logging
 import time
 import boto3
 import botocore
@@ -7,14 +6,20 @@ from boto3.dynamodb.conditions import Key
 import dynamodbgeo
 from datetime import datetime, timedelta
 
+from fast_api_als.utils.logger import logger
 from fast_api_als import constants
 from fast_api_als.utils.boto3_utils import get_boto3_session
+
+
 """
     the self.table.some_operation(), return a json object and you can find the http code of the executed operation as this :
     res['ResponseMetadata']['HTTPStatusCode']
     
     write a commong function that logs this response code with appropriate context data
 """
+
+def DBlogger(res, message):
+    logger.info(f"DB: {message}, respose code: {res['ResponseMetadata']['HTTPStatusCode']}")
 
 
 class DBHelper:
@@ -39,6 +44,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        DBlogger(res, f"Insert lead with hash: {lead_hash}")
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +71,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        DBlogger(res, f"Insert OEM lead with hash: {lead_hash}, UUID: {uuid}")
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,6 +80,7 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        DBlogger(res, f"Get lead with hash: {lead_hash}, lead provider: {lead_provider}")
         item = res.get('Item')
         if not item:
             return {
@@ -83,6 +91,7 @@ class DBHelper:
             }
         else:
             return {
+                logger.info("API call is duplicate for lead with hash {lead_hash}")
                 "Duplicate_Api_Call": {
                     "status": True,
                     "response": item['response']
@@ -95,7 +104,7 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
         )
-
+        DBlogger(res, f"Get lead with OEM: {oem}, date: {date}")
         return res.get('Items', [])
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
@@ -104,11 +113,13 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        DBlogger(res, f"Get lead with UUID: {uuid}, OEM: {oem}")
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
+        DBlogger(res, f"Update sent status for lead UUID: {uuid}, OEM: {oem}")
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +129,7 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        DBlogger(res, f"Get lead with OEM: {oem}")
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,6 +139,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        DBlogger(res, f"Get API key query, API key: {apikey}")
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -136,6 +149,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        DBlogger(res, f"Get auth key query, username: {username}")
         item = res['Items']
         if len(item) == 0:
             return None
@@ -143,6 +157,7 @@ class DBHelper:
 
     def set_auth_key(self, username: str):
         self.delete_3PL(username)
+        DBlogger(res, f"Delete lead with auth key: {username}")
         apikey = str(uuid.uuid4())
         res = self.table.put_item(
             Item={
@@ -151,12 +166,14 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        DBlogger(res, f"Insert lead with username: {username}, API key: {apikey}")
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        DBlogger(res, f"Delete lead with username: {username}")
         item = res.get('Items', [])
         if len(item):
             return None
@@ -166,6 +183,7 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
+        DBlogger(res, f"Insert lead with make-model {make_model}")
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -174,6 +192,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        DBlogger(res, f"Get lead with OEM {oem}")
         if 'Item' not in res:
             return {}
         if parallel:
@@ -194,6 +213,7 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        DBlogger(res, f"Insert OEM with OEM: {oem}, make_model: {make_model}, threshold: {threshold}")
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +222,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        DBlogger(res, f"Delete OEM with OEM: {oem}")
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +233,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            DBlogger(res, f"Delete 3PL with username: {username}, authkey: {authkey}")
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -221,6 +243,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        DBlogger(res, f"Insert OEM with threshold: {threshold}")
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -240,6 +263,7 @@ class DBHelper:
                 sort=True
             )
         )
+        DBlogger(res, f"Fetch manager query, lat: {lat}, lon: {lon}, radius: 50km")
         if len(res) == 0:
             return {}
         res = res[0]
@@ -263,6 +287,8 @@ class DBHelper:
             IndexName='dealercode-index',
             KeyConditionExpression=Key('dealerCode').eq(dealer_code) & Key('oem').eq(oem)
         )
+        DBlogger(res, f"Fetch dealer query, dealer_code: {dealer_code}, OEM: {oem}")
+
         res = res['Items']
         if len(res) == 0:
             return {}
@@ -288,6 +314,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        res(res, "Insert customer lead with UUID {uuid}, email {email}, phone {phone}, lastname {last_name}, make {make}, model {model}")
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -295,6 +322,7 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            DBlogger(res, f"Get lead with UUID: {uuid}, make: {make}, model {model}")
             if len(res['Items']):
                 lead_exist = True
         else:
@@ -310,10 +338,12 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        DBlogger(res, f"Get lead with email: {email}")
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
+        DBlogger(res, f"Get lead with phone: {phone}, last-name: {last_name}")
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
 
         for item in customer_leads:
@@ -326,6 +356,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        DBlogger(res, f"Get lead with API key: {apikey}")
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
@@ -335,6 +366,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
+        DBlogger(res, f"Get lead with OEM: {oem}, UUID: {lead_uuid}")
         items = res.get('Items')
         if len(items) == 0:
             return False, {}
@@ -348,9 +380,9 @@ class DBHelper:
 
 def verify_response(response_code):
     if not response_code == 200:
-        pass
+        logger.info("Item could not be added to the database")
     else:
-        pass
+        logger.info("Item added to the database successfully")
 
 
 session = get_boto3_session()
