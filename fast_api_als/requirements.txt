@@ -10,7 +10,7 @@ gender-guesser==0.4.0
 uszipcode==1.0.1
 boto3==1.20.26
 botocore==1.23.26
-httpx==0.22.0
+httpx==0.23.0
 py3-validate-email==1.0.5
 phonenumbers==8.12.45
 dynamodbgeo==0.0.3
