@@ -71,7 +71,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = int(time.time() * 1000.0)
     lead_hash = calculate_lead_hash(obj)
     t2 = int(time.time() * 1000.0)
-    logging.info(f"Lead hash calculated in {t2 - t1} ms")
+    logging.info(f"Lead hash calculated is {lead_hash}. Operation done in {t2 - t1} ms")
 
     t1 = int(time.time() * 1000.0)
     # check if adf xml is valid
@@ -142,7 +142,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
     oem_threshold = float(fetched_oem_data['threshold'])
     t2 = int(time.time() * 1000.0)
-    logging.info(f"Checked whether 3PL is making a duplicate call or it is a",
+    logging.info(f"Checked that 3PL is not making a duplicate call or a ",
                     f"duplicate lead in {t2 - t1} ms")
 
     # if dealer is not available then find nearest dealer
@@ -170,14 +170,16 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = int(time.time() * 1000.0)
     result = score_ml_input(ml_input, make, dealer_available)
     t2 = int(time.time() * 1000.0)
-    logging.info(f"Score the lead in {t2 - t1} ms")
+    logging.info(f"Result obtained from scoring the lead is {result}. operation completed in {t2 - t1} ms")
 
     # create the response
     response_body = {}
     if result >= oem_threshold:
+        logging.info("Score is equal to or above the OEM threshold")
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
     else:
+        logging.info("Score is below the OEM threshold")
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
