@@ -19,7 +19,7 @@ logging.basicConfig(level="logging.DEBUG",fomrat='%(levelname)s:%(asctime)s:%(mo
 
 def common_logger_function(res,operation):
     response_code=res['ResponseMetadata']['HTTPStatusCode']
-    logging.INFO("The operation" + operation + "returned the response code" + response_code)
+    logging.info("The operation" + operation + "returned the response code" + response_code)
     
 
 class DBHelper:
