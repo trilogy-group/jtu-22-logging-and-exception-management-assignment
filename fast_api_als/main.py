@@ -1,4 +1,5 @@
 import time
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,9 @@ app.include_router(quicksight.router)
 # only present during test development
 # app.include_router(test_api.router)
 
+logging.basicConfig(filename='logger.log', level=logging.DEBUG,
+                        format='%(asctime)s %(name)s: %(message)s')
+
 origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
@@ -28,6 +32,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
+    logging.info("Welcome page loaded")
     return {"message": "Welcome to jTU"}
 
 
@@ -35,4 +40,5 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
-    return {f"Pong with response time {time_taken} ms"}
+    logging.info(f"Ping with response time {time_taken} ms")
+    return {f"Ping with response time {time_taken} ms"}
