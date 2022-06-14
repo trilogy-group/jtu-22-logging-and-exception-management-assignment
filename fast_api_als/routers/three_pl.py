@@ -17,10 +17,13 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
+        logging.info("unauthorized: role is not ADMIN and not 3PL")
         pass
     if role == "ADMIN":
+        logging.info("role is ADMIN")
         provider = body['3pl']
     apikey = db_helper_session.set_auth_key(username=provider)
+    logging.info("reset_authkey returned status code 200")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
@@ -34,10 +37,13 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
+        logging.info("unauthorized: role is not ADMIN and not 3PL")
         pass
     if role == "ADMIN":
+        logging.info("role is ADMIN")
         provider = body['3pl']
     apikey = db_helper_session.get_auth_key(username=provider)
+    logging.info("view_authkey returned status code 200")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
