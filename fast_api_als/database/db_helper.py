@@ -16,6 +16,12 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+logging.basicConfig(level=logging.DEBUG , format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+def common_loggger(Operation,Response):
+    StatusCode = Response['ResponseMetadata']['HTTPStatusCode']
+    logging.info("The operation " + Operation + " has returned a Http response code : " + str(StatusCode))
+
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -39,6 +45,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +72,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,6 +81,7 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        common_loggger("get_item", res)
         item = res.get('Item')
         if not item:
             return {
@@ -96,6 +105,8 @@ class DBHelper:
                                    & Key('gsisk').begins_with("0#0")
         )
 
+        common_loggger("query", res)
+
         return res.get('Items', [])
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
@@ -104,11 +115,13 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        common_loggger("get_item", res)
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +131,7 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        common_loggger("get_item", res)
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,6 +141,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        common_loggger("query", res)
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -136,6 +151,7 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        common_loggger("query", res)
         item = res['Items']
         if len(item) == 0:
             return None
@@ -151,12 +167,14 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        common_loggger("put_item", res)
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        common_loggger("query", res)
         item = res.get('Items', [])
         if len(item):
             return None
@@ -166,6 +184,7 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -174,6 +193,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        common_loggger("get_item", res)
         if 'Item' not in res:
             return {}
         if parallel:
@@ -194,6 +214,7 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        common_loggger("put_item", res)
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +223,7 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        common_loggger("delete_item", res)
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +234,7 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            common_loggger("delete_item", res)
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -221,6 +244,7 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -288,6 +312,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -295,12 +320,14 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            common_loggger("query", res)
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            common_loggger("query", res)
             if len(res['Items']):
                 lead_exist = True
         return lead_exist
@@ -310,10 +337,14 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        common_loggger("query", email_attached_leads)
+
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
+        common_loggger("query", phone_attached_leads)
+
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
 
         for item in customer_leads:
@@ -326,6 +357,7 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        common_loggger("query", res)
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
@@ -335,6 +367,8 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
+        common_loggger("query", res)
+        
         items = res.get('Items')
         if len(items) == 0:
             return False, {}
@@ -343,6 +377,7 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
+        common_loggger("put_item", res)
         return True, item
 
 
