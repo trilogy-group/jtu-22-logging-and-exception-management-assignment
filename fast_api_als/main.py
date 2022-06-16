@@ -1,4 +1,5 @@
 import time
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,14 +26,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logging.basicConfig(level=logging.DEBUG,format='%(levelname)s:%(asctime)s:%(module)s')
+
 
 @app.get("/")
 def root():
+    logging.info("Succesfully loaded starting page")
     return {"message": "Welcome to jTU"}
-
 
 @app.get("/ping")
 def ping():
+    logging.debug("Ping function called")
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
+    logging.info("Time taken by Ping is " + str(time_taken) + "ms")
     return {f"Pong with response time {time_taken} ms"}

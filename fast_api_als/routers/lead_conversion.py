@@ -17,6 +17,8 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+logging.basicConfig(level=INFO,format='%(levelname)s:%(asctime)s:%(module)s')
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -26,6 +28,19 @@ def get_quicksight_data(lead_uuid, item):
             Returns:
                 S3 data
     """
+    # Exception handling for make and model key
+    try:
+        item["make"]
+    except:
+        logging.error("Does not have make property")
+        raise Exception("Item does not have make property")
+
+    try:
+        item["model"]
+    except:
+        logging.error("Does not have model property")
+        raise Exception("Item does not have model property")
+
     data = {
         "lead_hash": lead_uuid,
         "epoch_timestamp": int(time.time()),
@@ -37,6 +52,8 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+
+    logging.info("Created the lead converted data succesfully")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -47,6 +64,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
+        logging.error("lead_uuid or converted not in body")
+        raise Exception(400,"lead_uuid or converted not in body")
         pass
         
     lead_uuid = body['lead_uuid']
@@ -55,6 +74,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         # throw proper HTTPException
+        logging.error("Unauthorized User, Access deined!")
+        raise Exception(401,"Unauthorized User")
         pass
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
@@ -67,4 +88,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         # throw proper HTTPException
+        logging.info("Lead conversion not updated")
+        raise Exception(400,"Lead conversion not updated")
         pass
