@@ -17,6 +17,8 @@ router = APIRouter()
 write proper logging and exception handling
 """
 
+logging.basicConfig(level=logging.DEBUG , format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
 def get_quicksight_data(lead_uuid, item):
     """
             Creates the lead converted data for dumping into S3.
@@ -26,6 +28,21 @@ def get_quicksight_data(lead_uuid, item):
             Returns:
                 S3 data
     """
+
+    # check if the key 'make' and 'model' exists in item or not
+
+    try:
+        item['make']
+    except:
+        logging.error("The parameter item does not have make property")
+        raise Exception("Item does not have the make paramter")
+
+    try:
+        item['model']
+    except:
+        logging.error("The parameter item does not have model property")
+        raise Exception("Item does not have the model paramter")
+    
     data = {
         "lead_hash": lead_uuid,
         "epoch_timestamp": int(time.time()),
@@ -37,6 +54,8 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+
+    logging.info("Created the s3 data successfully.")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -47,15 +66,16 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
-        pass
+        logging.info("lead_uuid not in body or 'converted' not in body")
+        raise HTTPException(400,detail="lead_uuid or converted not in body.")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        logging.info("user is not authorized")
+        raise HTTPException(401,detail="user is not authorized")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +86,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        logging.info("lead conversion not updated")
+        raise HTTPException(400,detail="lead conversion not updated")
