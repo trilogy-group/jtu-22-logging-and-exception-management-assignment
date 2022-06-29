@@ -10,6 +10,14 @@ from starlette.status import HTTP_200_OK, HTTP_401_UNAUTHORIZED
 
 router = APIRouter()
 
+# Creating logger file and configuring
+logging.basicConfig(filename="newFile.log", format='%(asctime)s %(message)s', filemode='w')
+
+# Creating object logger
+logger = logging.getLogger()
+
+# Setting threshold of logger to DEBUG
+logger.setLevel(logging.DEBUG)
 
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
@@ -18,9 +26,12 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
         pass
+        logger.error("three_pl: reset_authkey: role is neither ADMIN nor 3PL")
+        raise HTTPException(401,"role is neither ADMIN nor 3PL")
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.set_auth_key(username=provider)
+    logger.info("three_pl: reset_authkey: Auth key reset successful")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
@@ -35,9 +46,12 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
 
     if role != "ADMIN" and role != "3PL":
         pass
+        logger.error("three_pl: view_authkey: role is neither ADMIN nor 3PL")
+        raise HTTPException(401,"role is neither ADMIN nor 3PL")
     if role == "ADMIN":
         provider = body['3pl']
     apikey = db_helper_session.get_auth_key(username=provider)
+    logger.info("three_pl: view_authkey: Function execution successful")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
