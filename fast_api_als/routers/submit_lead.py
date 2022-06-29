@@ -30,6 +30,14 @@ keep in mind:
 You as a developer has to find how much time each part of code takes.
 you will get the idea about the part when you go through the code.
 """
+# Creating logger file and configuring
+logging.basicConfig(filename="newFile.log", format='%(asctime)s %(message)s', filemode='w')
+
+# Creating object logger
+logger = logging.getLogger()
+
+# Setting threshold of logger to DEBUG
+logger.setLevel(logging.DEBUG)
 
 @router.post("/submit/")
 async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
@@ -39,6 +47,9 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
         pass
+        logger.error("submit_lead: submit: API key invalid")
+        raise HTTPException(401,detail="API key invalid")
+
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -55,14 +66,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+        logger.error("submit_lead: def submit: XML was not parsable")
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
-    
-    lead_hash = calculate_lead_hash(obj)
-
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
 
@@ -70,6 +79,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logger.error("submit_lead: submit: Failed Validation Check")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -95,11 +105,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                 logger.info("submit_lead: submit: Duplicate Api call")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logger.info("submit_lead: submit: Duplicate lead found")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -108,12 +120,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logger.info("submit_lead: submit: OEM data not found")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logger.info("submit_lead: def submit: threshold not found in fetched oem data")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -152,6 +166,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logger.error("submit_lead: submit: Contact Not Verified")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -197,7 +212,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         res = sqs_helper_session.send_message(message)
-
     else:
         message = {
             'put_file': {
@@ -212,7 +226,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         res = sqs_helper_session.send_message(message)
     time_taken = (int(time.time() * 1000.0) - start)
-
+    logger.info(f"submit_lead: submit: Submit function took {time_taken} ms to run")
     response_message = f"{result} Response Time : {time_taken} ms"
-
+    logger.info("submit_lead: submit: Submit function successfully ran")
     return response_body
