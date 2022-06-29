@@ -218,13 +218,17 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        table_log(res,"get_item")
         if 'Item' not in res:
+            successLog("fetch_oem_data")
             return {}
         if parallel:
+            successLog("fetch_oem_data")
             return {
                 "fetch_oem_data": res['Item']
             }
         else:
+            successLog("fetch_oem_data")
             return res['Item']
 
     def create_new_oem(self, oem: str, make_model: str, threshold: str):
@@ -238,6 +242,8 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        table_log(res,"put_item")
+        successLog("create_new_oem")
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -246,6 +252,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        table_log("delete_item")
+        successLog("delete_oem")
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -256,18 +264,23 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            table_log("delete_item")
+        successLog("delete_3PL")
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
         if item == {}:
+            successLog("set_oem_threshold")
             return {
                 "error": f"OEM {oem} not found"
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        table_log(res,"put_item")
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
+        successLog("set_oem_threshold")
 
     def fetch_nearest_dealer(self, oem: str, lat: str, lon: str):
         query_input = {
@@ -276,6 +289,7 @@ class DBHelper:
                 ":val1": {"S": oem},
             }
         }
+        table_log(res,"query")
         res = self.geo_data_manager.queryRadius(
             dynamodbgeo.QueryRadiusRequest(
                 dynamodbgeo.GeoPoint(lat, lon),
@@ -285,6 +299,7 @@ class DBHelper:
             )
         )
         if len(res) == 0:
+            successLog("fetch_nearest_dealer")
             return {}
         res = res[0]
         dealer = {
@@ -298,25 +313,31 @@ class DBHelper:
                 }
             }
         }
+        successLog("fetch_nearest_dealer")
         return dealer
 
     def get_dealer_data(self, dealer_code: str, oem: str):
         if not dealer_code:
+            successLog("get_dealer_data")
             return {}
         res = self.dealer_table.query(
             IndexName='dealercode-index',
             KeyConditionExpression=Key('dealerCode').eq(dealer_code) & Key('oem').eq(oem)
         )
+        table_log(res,"query")
         res = res['Items']
         if len(res) == 0:
+            successLog("get_dealer_data")
             return {}
         res = res[0]
+        successLog("get_dealer_data")
         return {
             'postalcode': res['dealerZip'],
             'rating': res['Rating'],
             'recommended': res['Recommended'],
             'reviews': res['LifeTimeReviews']
         }
+        successLog("get_dealer_data")
 
     def insert_customer_lead(self, uuid: str, email: str, phone: str, last_name: str, make: str, model: str):
         item = {
@@ -332,6 +353,8 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        table_log(res,"put_item")
+        successLog("insert_customer_lead")
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -339,14 +362,17 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            table_log(res,"query")
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            table_log(res,"query")
             if len(res['Items']):
                 lead_exist = True
+        successLog(lead_exists)
         return lead_exist
 
     def check_duplicate_lead(self, email: str, phone: str, last_name: str, make: str, model: str):
@@ -354,15 +380,19 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        table_log(res,"query")
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
+        table_log(res,"query")
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
 
         for item in customer_leads:
             if self.lead_exists(item['pk'], make, model):
+                successLog("check_duplicate_lead")
                 return {"Duplicate_Lead": True}
+        successLog("check_duplicate_lead")
         return {"Duplicate_Lead": False}
 
     def get_api_key_author(self, apikey):
@@ -370,16 +400,18 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        table_log(res,"query")
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
+        successLog("get_api_key_author")
         return item[0].get("pk", "unknown")
 
     def update_lead_conversion(self, lead_uuid: str, oem: str, converted: int):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(f"{oem}#{lead_uuid}")
         )
-        items = res.get('Items')
+        table_log(res,"query")
         if len(items) == 0:
             return False, {}
         item = items[0]
@@ -387,13 +419,16 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
+        successLog("update_lead_conversion")
         return True, item
 
 
 def verify_response(response_code):
     if not response_code == 200:
+        successLog("verify_response")
         pass
     else:
+        successLog("verify_response")
         pass
 
 
