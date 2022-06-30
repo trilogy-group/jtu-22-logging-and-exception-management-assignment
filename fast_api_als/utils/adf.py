@@ -39,8 +39,13 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        logger.info("adf: parse_xml:Successfully parsed xml")
+        return obj
+    except:
+        logger.error("adf: parse_xml: Unable to parse xml")
+        raise HTTPException(400, detail="Unable to parse xml")
 
 
 def validate_adf_values(input_json):
@@ -59,14 +64,17 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logging.info("adf: validate_adf_values: Either First name or last name is incomplete")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logging.info("adf: validate_adf_values: Email and Phone are empty/null")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+         logger.error("adf: validate_adf_valued: Invalid postal code")
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -75,12 +83,14 @@ def validate_adf_values(input_json):
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
     if not email and not tcpa_consent:
+        logger.error("adf: validate_adf_valued: Contact Method missing TCPA consent")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logger.error("adf: validate_adf_valued: Invalid DateTime")
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
-
+    logger.info("adf: validate_adf_values: Function executed successfully")
     return {"status": "OK"}
 
 
@@ -94,7 +104,9 @@ def check_validation(input_json):
         )
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
+            logger.error("adf: check_validation: Validation Failed")
             return False, response['code'], response['message']
+        logger.info("adf: check_validation: Validation Success")
         return True, "input validated", "validation_ok"
     except Exception as e:
         logger.error(f"Validation failed: {e.message}")
