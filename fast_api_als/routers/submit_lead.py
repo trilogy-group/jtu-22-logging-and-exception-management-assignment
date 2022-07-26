@@ -37,8 +37,9 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     t1 = [int(time.time() * 1000.0)]
     
     if not db_helper_session.verify_api_key(apikey):
-        # throw proper fastpi.HTTPException
-        pass
+        # throw proper fastpi.HTTPException 
+        logger.error("API key could not be verified")
+        raise HTTPException("API key could not be verified")
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -60,6 +61,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
+
+    t2 = [int(time.time() * 1000.0)]
+    parse_time = t2 - t1
+    logger.info(f"Time taken for parsing: {parse_time} ms")
     
     lead_hash = calculate_lead_hash(obj)
 
@@ -76,12 +81,19 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "message": validation_message
         }
 
+    t3 = [int(time.time() * 1000.0)]
+    validation_time = t3 - t2
+    logger.info(f"Time taken for parsing: {validation_time} ms")
+
     # check if vendor is available here
     dealer_available = True if obj['adf']['prospect'].get('vendor', None) else False
     email, phone, last_name = get_contact_details(obj)
     make = obj['adf']['prospect']['vehicle']['make']
     model = obj['adf']['prospect']['vehicle']['model']
 
+    t4 = [int(time.time() * 1000.0)]
+    vendor_availibility_time = t4 - t3
+    logger.info(f"Time taken for parsing: {vendor_availibility_time} ms")
 
     fetched_oem_data = {}
 
@@ -120,6 +132,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             "message": "OEM data not found"
         }
     oem_threshold = float(fetched_oem_data['threshold'])
+
+    t5 = [int(time.time() * 1000.0)]
+    duplication_check_time = t5 - t4
+    logger.info(f"Time taken for parsing: {duplication_check_time} ms")
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
@@ -214,5 +230,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
+    logger.info(response_message)
 
     return response_body
