@@ -5,6 +5,8 @@ from uszipcode import SearchEngine
 import re
 
 
+logging.basicConfig(filename="applicationLogs.txt", filemode='w',level=logging.DEBUG,  format = '%(asctime)s %(levelname)s: %(message)s',)
+
 
 # ISO8601 datetime regex
 regex = r'^(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]+)?(Z|[+-](?:2[0-3]|[01][0-9]):[0-5][0-9])?$'
@@ -29,7 +31,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logging.error("Invalid iso8601 format for request date:", requestdate)        
     return False
 
 
@@ -39,8 +41,13 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        return obj
+    except Exception as e:
+        logging.error("Error parsing xml to dictionary, xml was:",adf_xml)
+        return {}
+    
 
 
 def validate_adf_values(input_json):
@@ -59,9 +66,11 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logging.error(f" Code - 6_MISSING_FIELD. Name is missing in the request:{input_json}.")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logging.error("Code: 6_Missing_field, email and phone number both are missing in request:{0}".format(input_json))
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
