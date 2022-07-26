@@ -1,3 +1,4 @@
+from http.client import HTTPException
 import json
 from fastapi import APIRouter, Depends
 import logging
@@ -12,6 +13,8 @@ from fast_api_als.services.authenticate import get_token
 from fast_api_als.utils.cognito_client import get_user_role
 
 router = APIRouter()
+logging.basicConfig(filename="applicationLogs.txt", filemode='w',level=logging.DEBUG,  format = '%(asctime)s %(levelname)s: %(message)s',)
+
 
 """
 write proper logging and exception handling
@@ -37,6 +40,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logging.info("Function for fetching quicksight data executed successfully")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -47,7 +51,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
 
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
-        pass
+        logging.error("Invalid Request! lead uuid and/or converted is missing from request params", body)
+        raise HTTPException(400, detail= "Invalid Request! lead uuid and/or converted is missing from request params")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -55,7 +60,8 @@ async def submit(file: Request, token: str = Depends(get_token)):
     oem, role = get_user_role(token)
     if role != "OEM":
         # throw proper HTTPException
-        pass
+        logging.error("Invalid role! Role is not OEM, role:{0}, lead_uuid".format(role, lead_uuid))
+        raise HTTPException(403,detail="Role is not OEM")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +72,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        raise HTTPException(500, "Unable to update  lead conversion")
