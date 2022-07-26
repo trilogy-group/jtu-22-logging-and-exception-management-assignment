@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import time
 import httpx
 import asyncio
@@ -14,6 +15,7 @@ You also trying to undderstand the execution time factor.
 """
 
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
+    logging.info("Calling validation service to verify {0}".format(value))
     if value == '':
         return
     async with httpx.AsyncClient() as client:  # 3
@@ -24,6 +26,8 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
+    verification_start_time=time.time()
+    logging.info("Function for verifying phone and email, executing")
     email_validation_url = '{}?Method={}&RequestKey={}&EmailAddress={}&OutputFormat=json'.format(
         ALS_DATA_TOOL_SERVICE_URL,
         ALS_DATA_TOOL_EMAIL_VERIFY_METHOD,
@@ -44,8 +48,11 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     )
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):
+            logging.info("Email: {0} verified".format(data["email"]))
             email_valid = True
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
             phone_valid = True
+
+    logging.info("Total time for verifying phone or email: {0}ms".format((time.time()-verification_start_time)*1000))
     return email_valid | phone_valid
