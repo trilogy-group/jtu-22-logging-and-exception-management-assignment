@@ -29,7 +29,7 @@ def validate_iso8601(requestdate):
         if match_iso8601(requestdate) is not None:
             return True
     except:
-        pass
+        logger.error("Error parsing requested date, coudn't validate ISO8601 format: ", requestdate)
     return False
 
 
@@ -39,7 +39,12 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
+    try:
+        obj = xmltodict.parse(adf_xml)
+    except Exception:
+        logger.error("Couldn't parse xml to dict: ", adf_xml)
+        return {}
+    logger.info("XML file parsed successfully")
     return obj
 
 
@@ -59,14 +64,17 @@ def validate_adf_values(input_json):
             last_name = True
 
     if not first_name or not last_name:
+        logger.info("Couldn't validate adf values, First name/ Last name not in input json")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
 
     if not email and not phone:
+        logger.info("Couldn't validate adf values, email and phone not in input json")
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
+        logger.info("Couldn't validate adf values, invalid zip in input json", zipcode)
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
 
     # check for TCPA Consent
@@ -75,12 +83,15 @@ def validate_adf_values(input_json):
         if id['@source'] == 'TCPA_Consent' and id['#text'].lower() == 'yes':
             tcpa_consent = True
     if not email and not tcpa_consent:
+        logger.info("Couldn't validate adf values, Contact Method missing TCPA consent")
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
 
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
+        logger.info("Coudn't validate adf values, Invalid datetime", input_json['requestdate'])
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
 
+    logger.info("Successsfully validated adf values")
     return {"status": "OK"}
 
 
