@@ -16,6 +16,13 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     write a commong function that logs this response code with appropriate context data
 """
 
+def logHelper(response, action):
+    code = response.get('ResponseMetadata').get('HTTPStatusCode')
+    if (code < 400):
+        logger.info(f"{action} with response code {code}")
+    else:
+        logger.error(f"Couldn't {action} with response code {code}")
+
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -39,6 +46,7 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        logHelper(res, "Put Item")
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +73,7 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        logHelper(res, "Put Item")
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,6 +82,7 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        logHelper(res, "Get Item")
         item = res.get('Item')
         if not item:
             return {
@@ -95,6 +105,7 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
         )
+        logHelper(res, "Query Table")
 
         return res.get('Items', [])
 
@@ -104,6 +115,7 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        logHelper(res, "Get Item")
         item = res['Item']
         if not item:
             return False
