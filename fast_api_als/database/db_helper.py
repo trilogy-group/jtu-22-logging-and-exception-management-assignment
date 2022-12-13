@@ -355,3 +355,9 @@ def verify_response(response_code):
 
 session = get_boto3_session()
 db_helper_session = DBHelper(session)
+
+
+def log_res_data(obj : DBHelper):
+    res = obj.table.some_operation()
+    http_code = res['ResponseMetadata']['HTTPStatusCode']
+    logging.info("Response status from table operation:"+str(http_code))
