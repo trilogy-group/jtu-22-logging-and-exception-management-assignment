@@ -12,4 +12,6 @@ what exceptions can be thrown here?
 
 
 def get_enriched_lead_json(adf_json: dict) -> dict:
+    if adf_json == {}:
+        logging.warning("Empty JSON")
     pass
