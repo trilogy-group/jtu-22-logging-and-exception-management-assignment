@@ -39,8 +39,13 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        logging.info("XML parsed successfully.")
+        return obj
+    except:
+        logging.error("XML parsing failed, returning null.")
+        return None
 
 
 def validate_adf_values(input_json):
@@ -97,5 +102,5 @@ def check_validation(input_json):
             return False, response['code'], response['message']
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
