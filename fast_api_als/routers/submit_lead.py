@@ -39,7 +39,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
         logging.error("Invalid API key")
-        raise HTTPException(status_code = 401, detail = "API key invalid")
+        raise HTTPException(status_code = 403, detail = "API key invalid")
     
     body = await file.body()
     body = str(body, 'utf-8')

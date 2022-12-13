@@ -57,7 +57,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if 'lead_uuid' not in body or 'converted' not in body:
         # throw proper HTTPException
         logging.error("lead_uuid and converted both keys not present in response body")
-        raise HTTPException(status_code = 405, detail = "lead_uuid and converted both keys not present in response")
+        raise HTTPException(status_code = 406, detail = "lead_uuid and converted both keys not present in response")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
@@ -66,7 +66,7 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if role != "OEM":
         # throw proper HTTPException
         logging.error("Role not OEM")
-        raise HTTPException(status_code = 401, detail = "Role required to be OEM")
+        raise HTTPException(status_code = 406, detail = "Role required to be OEM")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -78,4 +78,4 @@ async def submit(file: Request, token: str = Depends(get_token)):
         }
     else:
         logging.error("Lead conversion not updated")
-        raise HTTPException(status_code = 402, detail = "Lead conversion not updated")
+        raise HTTPException(status_code = 406, detail = "Lead conversion not updated")
