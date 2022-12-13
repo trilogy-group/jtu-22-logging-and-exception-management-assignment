@@ -25,7 +25,7 @@ async def call_validation_service(url: str, topic: str, value: str, data: dict) 
     data[topic] = r
     
     end_time = int(time.process_time()*1000.0)
-    logger.info(f"verify_phone_and_email: call_validation_service: Took {end_time-start_time}ms to execute the function")
+    logging.info(f"verify_phone_and_email: call_validation_service: Took {end_time-start_time}ms to execute the function")
 
 async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     start_time = int(time.process_time()*1000.0)
@@ -62,5 +62,5 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
         else: logging.info("Phone invalid")
     else: logging.info("Phone not validated")
     end_time = int(time.process_time()*1000.0)
-    logger.info(f"verify_phone_and_email: verify_phone_and_email: Function executed in {end_time-start_time}ms to run")
+    logging.info(f"verify_phone_and_email: verify_phone_and_email: Function executed in {end_time-start_time}ms to run")
     return email_valid | phone_valid
