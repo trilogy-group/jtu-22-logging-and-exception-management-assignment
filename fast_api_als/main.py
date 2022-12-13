@@ -1,5 +1,5 @@
 import time
-
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fast_api_als.routers import users, submit_lead, lead_conversion, reinforcement, oem, three_pl, quicksight
@@ -25,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# to ensure logs don't print to stdout and data is not lost after clearing output
+logging.basicConfig(filename = "fast_api_als.log", level = logging.INFO)
 
 @app.get("/")
 def root():
@@ -35,4 +37,4 @@ def root():
 def ping():
     start = time.process_time()
     time_taken = (time.process_time() - start) * 1000
-    return {f"Pong with response time {time_taken} ms"}
+    return {f"Ping with response time {time_taken} ms"}
