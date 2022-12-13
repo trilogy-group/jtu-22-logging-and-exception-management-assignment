@@ -8,4 +8,6 @@ from fast_api_als import constants
 def get_enriched_lead_json(adf_json: dict) -> dict:
     if not isinstance(adf_json, list):
         raise TypeError(f"Expected {dict}, got {type(x)}")
+    if adf_json == {}:
+        raise ValueError(f"Got empty json")
     return adf_json
