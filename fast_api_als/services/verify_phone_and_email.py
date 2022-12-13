@@ -37,11 +37,14 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     email_valid = False
     phone_valid = False
     data = {}
+    logging.info("Validating email and phone number...") # logging time stamp just before call is complete
 
     await asyncio.gather(
         call_validation_service(email_validation_url, "email", email, data),
         call_validation_service(phone_validation_url, "phone", phone_number, data),
     )
+    logging.info("Email and phone number validated.") # logging time stamp as soon as call is complete
+
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):
             email_valid = True
