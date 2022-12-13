@@ -17,8 +17,10 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
+        logging.info("Role is neither Admin nor 3PL")
         pass
     if role == "ADMIN":
+        logging.info("Role is Admin")
         provider = body['3pl']
     try:
         apikey = db_helper_session.set_auth_key(username=provider)
@@ -37,9 +39,11 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
 
-    if role != "ADMIN" and role != "3PL":
+    if role != "ADMIN" and (role != "3PL"):
+        logging.info("Role is neither Admin nor 3PL")
         pass
     if role == "ADMIN":
+        logging.info("Role is Admin")
         provider = body['3pl']
     try:
         apikey = db_helper_session.get_auth_key(username=provider)
