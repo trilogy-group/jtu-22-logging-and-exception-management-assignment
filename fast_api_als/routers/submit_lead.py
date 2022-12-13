@@ -38,7 +38,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
+        logging.error("Bad request due to failed API key verification")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -47,6 +48,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if xml was not parsable, if not return
     if not obj:
+        logging.info("XML not parsable")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -68,6 +70,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     #if not valid return
     if not validation_check:
+        logging.info("Failed to validate adf xml")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
         return {
@@ -123,6 +126,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logging.info("Dealer is not available")
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
@@ -131,12 +135,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         dealer_available = True if nearest_vendor != {} else False
 
     # enrich the lead
+    logging.info("Enriching lead...")
     model_input = get_enriched_lead_json(obj)
 
     # convert the enriched lead to ML input format
+    logging.info("converting to ML input format...")
     ml_input = conversion_to_ml_input(model_input, make, dealer_available)
 
     # score the lead
+    logging.info("Scoring lead...")
     result = score_ml_input(ml_input, make, dealer_available)
 
     # create the response
@@ -150,8 +157,10 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # verify the customer
     if response_body['status'] == 'ACCEPTED':
+        logging.info("Customer accepted by dealer")
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logging.info("Customer not verified")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -214,5 +223,6 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
+    logging.info(response_message)
 
     return response_body
