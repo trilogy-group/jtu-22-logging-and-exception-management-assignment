@@ -39,7 +39,6 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
     phone_valid = False
     data = {}
 
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
     logging.info("Calling validation service for email and phone")
     await asyncio.gather(
         call_validation_service(email_validation_url, "email", email, data),
