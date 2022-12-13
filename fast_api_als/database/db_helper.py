@@ -6,7 +6,7 @@ import botocore
 from boto3.dynamodb.conditions import Key
 import dynamodbgeo
 from datetime import datetime, timedelta
-
+from urllib.error import HTTPError
 from fast_api_als import constants
 from fast_api_als.utils.boto3_utils import get_boto3_session
 """
@@ -15,7 +15,11 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
     
     write a commong function that logs this response code with appropriate context data
 """
+log = logging.getLogger(__name__)
 
+def common_logger_function(context_data: str, res):
+    HTTPStatus = res['ResponseMetadata']['HTTPStatusCode']
+    log.info(f'{context_data} executed with status code: {HTTPStatus}')
 
 class DBHelper:
     def __init__(self, session: boto3.session.Session):
@@ -39,6 +43,8 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.LEAD_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        logger_message = f'insert_lead with lead provider: {lead_provider} and lead_hash: {lead_hash}'
+        common_logger_function(logger_message, res)
 
     def insert_oem_lead(self, uuid: str, make: str, model: str, date: str, email: str, phone: str, last_name: str,
                         timestamp: str, make_model_filter_status: str, lead_hash: str, dealer: str, provider: str,
@@ -65,6 +71,8 @@ class DBHelper:
         }
 
         res = self.table.put_item(Item=item)
+        logger_message = f'insert_oem_lead with uuid: {uuid}'
+        common_logger_function(logger_message, res)
 
     def check_duplicate_api_call(self, lead_hash: str, lead_provider: str):
         res = self.table.get_item(
@@ -73,8 +81,11 @@ class DBHelper:
                 'sk': lead_provider
             }
         )
+        logger_message = f'check for duplicate API calls with lead provider: {lead_provider} and lead_hash: {lead_hash}'
+        common_logger_function(logger_message, res)
         item = res.get('Item')
         if not item:
+            log.info(f'No duplicate API calls for lead hash: {lead_hash} and lead provider: {lead_provider}')
             return {
                 "Duplicate_Api_Call": {
                     "status": False,
@@ -82,6 +93,7 @@ class DBHelper:
                 }
             }
         else:
+            log.info(f'Duplicate API calls for lead hash: {lead_hash} and lead provider: {lead_provider}')
             return {
                 "Duplicate_Api_Call": {
                     "status": True,
@@ -95,7 +107,8 @@ class DBHelper:
             KeyConditionExpression=Key('gsipk').eq(f"{oem}#{date}")
                                    & Key('gsisk').begins_with("0#0")
         )
-
+        logger_message = f'accepted_lead_not_sent_for_oem with oem: {oem}'
+        common_logger_function(logger_message, res)
         return res.get('Items', [])
 
     def update_lead_sent_status(self, uuid: str, oem: str, make: str, model: str):
@@ -104,11 +117,14 @@ class DBHelper:
                 'pk': f"{uuid}#{oem}"
             }
         )
+        
         item = res['Item']
         if not item:
             return False
         item['gsisk'] = "1#0"
         res = self.table.put_item(Item=item)
+        logger_message = f'update_lead_sent_status with oem: {oem} and uuid: {uuid}'
+        common_logger_function(logger_message, res)
         return True
 
     def get_make_model_filter_status(self, oem: str):
@@ -118,6 +134,8 @@ class DBHelper:
                 'sk': 'METADATA'
             }
         )
+        logger_message = f'get_make_model_filter_status with oem: {oem} and uuid: {uuid}'
+        common_logger_function(logger_message, res)
         if res['Item'].get('settings', {}).get('make_model', "False") == 'True':
             return True
         return False
@@ -127,6 +145,8 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        logger_message = f'verify_api_key with apikey: {apikey}'
+        common_logger_function(logger_message, res)
         item = res.get('Items', [])
         if len(item) == 0:
             return False
@@ -136,6 +156,8 @@ class DBHelper:
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        logger_message = f'get_auth_key with username: {username}'
+        common_logger_function(logger_message, res)
         item = res['Items']
         if len(item) == 0:
             return None
@@ -151,12 +173,16 @@ class DBHelper:
                 'gsipk': apikey
             }
         )
+        logger_message = f'set_auth_key with username: {username}'
+        common_logger_function(logger_message, res)
         return apikey
 
     def register_3PL(self, username: str):
         res = self.table.query(
             KeyConditionExpression=Key('pk').eq(username)
         )
+        logger_message = f'register_3PL with username: {username}'
+        common_logger_function(logger_message, res)
         item = res.get('Items', [])
         if len(item):
             return None
@@ -166,6 +192,8 @@ class DBHelper:
         item = self.fetch_oem_data(oem)
         item['settings']['make_model'] = make_model
         res = self.table.put_item(Item=item)
+        logger_message = f'set_make_model_oem with oem: {oem}'
+        common_logger_function(logger_message, res)
 
     def fetch_oem_data(self, oem, parallel=False):
         res = self.table.get_item(
@@ -174,6 +202,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        logger_message = f'fetch_oem_data with oem: {oem}'
+        common_logger_function(logger_message, res)
         if 'Item' not in res:
             return {}
         if parallel:
@@ -194,6 +224,8 @@ class DBHelper:
                 'threshold': threshold
             }
         )
+        logger_message = f'create_new_oem with oem: {oem} and threshold: {threshold}'
+        common_logger_function(logger_message, res)
 
     def delete_oem(self, oem: str):
         res = self.table.delete_item(
@@ -202,6 +234,8 @@ class DBHelper:
                 'sk': "METADATA"
             }
         )
+        logger_message = f'delete_oem with oem: {oem}'
+        common_logger_function(logger_message, res)
 
     def delete_3PL(self, username: str):
         authkey = self.get_auth_key(username)
@@ -212,6 +246,8 @@ class DBHelper:
                     'sk': authkey
                 }
             )
+            logger_message = f'delete_3PL with username: {username}'
+            common_logger_function(logger_message, res)
 
     def set_oem_threshold(self, oem: str, threshold: str):
         item = self.fetch_oem_data(oem)
@@ -221,6 +257,8 @@ class DBHelper:
             }
         item['threshold'] = threshold
         res = self.table.put_item(Item=item)
+        logger_message = f'set_oem_threshold with oem: {oem} and threshold: {threshold}'
+        common_logger_function(logger_message, res)
         return {
             "success": f"OEM {oem} threshold set to {threshold}"
         }
@@ -243,6 +281,8 @@ class DBHelper:
         if len(res) == 0:
             return {}
         res = res[0]
+        logger_message = f'fetch_nearest_dealer with oem: {oem} and latitute: {lat} and longitutde: {lon}'
+        common_logger_function(logger_message, res)
         dealer = {
             'id': {
                 '#text': res['dealerCode']['S']
@@ -267,6 +307,8 @@ class DBHelper:
         if len(res) == 0:
             return {}
         res = res[0]
+        logger_message = f'fetch_nearest_dealer with oem: {oem} dealer code: {dealer_code}'
+        common_logger_function(logger_message, res)
         return {
             'postalcode': res['dealerZip'],
             'rating': res['Rating'],
@@ -288,6 +330,8 @@ class DBHelper:
             'ttl': datetime.fromtimestamp(int(time.time())) + timedelta(days=constants.OEM_ITEM_TTL)
         }
         res = self.table.put_item(Item=item)
+        logger_message = f'insert_customer_lead with uuid: {uuid}'
+        common_logger_function(logger_message, res)
 
     def lead_exists(self, uuid: str, make: str, model: str):
         lead_exist = False
@@ -295,12 +339,16 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            logger_message = f'lead_exists with uuid: {uuid}'
+            common_logger_function(logger_message, res)
             if len(res['Items']):
                 lead_exist = True
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            logger_message = f'lead_exists with uuid: {uuid}'
+            common_logger_function(logger_message, res)
             if len(res['Items']):
                 lead_exist = True
         return lead_exist
@@ -310,10 +358,14 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(email)
         )
+        logger_message = f'check_duplicate_lead with email: {email}'
+        common_logger_function(logger_message, email_attached_leads)
         phone_attached_leads = self.table.query(
             IndexName='gsi1-index',
             KeyConditionExpression=Key('gsipk1').eq(f"{phone}#{last_name}")
         )
+        logger_message = f'check_duplicate_lead with phone: {phone}'
+        common_logger_function(logger_message, phone_attached_leads)
         customer_leads = email_attached_leads['Items'] + phone_attached_leads['Items']
 
         for item in customer_leads:
@@ -326,6 +378,8 @@ class DBHelper:
             IndexName='gsi-index',
             KeyConditionExpression=Key('gsipk').eq(apikey)
         )
+        logger_message = f'get_api_key_author with apikey: {apikey}'
+        common_logger_function(logger_message, res)
         item = res.get('Items', [])
         if len(item) == 0:
             return "unknown"
@@ -343,13 +397,17 @@ class DBHelper:
         item['conversion'] = converted
         item['gsisk'] = f"1#{converted}"
         res = self.table.put_item(Item=item)
+        logger_message = f'update_lead_conversion with lead_uuid: {lead_uuid} and oem: {oem}'
+        common_logger_function(logger_message, res)
         return True, item
 
 
 def verify_response(response_code):
     if not response_code == 200:
+        raise HTTPError(code=response_code, msg="Response is not verified")
         pass
     else:
+        log.info("Response is verified!")
         pass
 
 
