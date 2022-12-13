@@ -45,7 +45,7 @@ def parse_xml(adf_xml):
         return obj
     except:
         logging.error("XML parsing failed, returning null")
-        return null
+        return None
 
 
 def validate_adf_values(input_json):

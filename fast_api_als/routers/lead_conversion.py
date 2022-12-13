@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import logging
 import time
 
@@ -37,6 +37,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logging.info(f"S3 data created with {lead_uuid}")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -44,21 +45,25 @@ def get_quicksight_data(lead_uuid, item):
 async def submit(file: Request, token: str = Depends(get_token)):
     body = await file.body()
     body = json.loads(str(body, 'utf-8'))
+    logging.info("Request body parsed")
 
     if 'lead_uuid' not in body or 'converted' not in body:
+        logging.error("'lead_uuid' or 'converted' key missing in body.")
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'lead_uuid' or 'converted' missing")
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
+        logging.error(f"Permission denied to {role}")
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only OEM users can request")
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
+        logging.info("Lead conversion updated")
         data, path = get_quicksight_data(lead_uuid, item)
         s3_helper_client.put_file(data, path)
         return {
@@ -66,5 +71,6 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
+        logging.error("Lead conversion update failed")
         # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed")
