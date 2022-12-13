@@ -27,10 +27,14 @@ def process_before_validating(input_json):
 def validate_iso8601(requestdate):
     try:
         if match_iso8601(requestdate) is not None:
+            logging.info(f"Match found for {requestdate}")
             return True
-    except:
-        pass
-    return False
+        else:
+            logging.error(f"No match found for {requestdate}")
+            return False
+    except Exception as e:
+        logging.error("ISO validation failed:"+str(e.message))
+        return False
 
 
 def is_nan(x):
@@ -39,8 +43,13 @@ def is_nan(x):
 
 def parse_xml(adf_xml):
     # use exception handling
-    obj = xmltodict.parse(adf_xml)
-    return obj
+    try:
+        obj = xmltodict.parse(adf_xml)
+        logging.info("XML parsed successfully")
+        return obj
+    except Exception as e:
+        logging.error("XML not parsed successfully:"+str(e.message))
+        return None
 
 
 def validate_adf_values(input_json):
@@ -60,14 +69,17 @@ def validate_adf_values(input_json):
 
     if not first_name or not last_name:
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "name is incomplete"}
+    logging.info("First Name and Last Name field present")
 
     if not email and not phone:
         return {"status": "REJECTED", "code": "6_MISSING_FIELD", "message": "either phone or email is required"}
+    logging.info("Email and Phone field present")
 
     # zipcode validation
     res = zipcode_search.by_zipcode(zipcode)
     if not res:
         return {"status": "REJECTED", "code": "4_INVALID_ZIP", "message": "Invalid Postal Code"}
+    logging.info("Zip code validated")
 
     # check for TCPA Consent
     tcpa_consent = False
@@ -76,11 +88,11 @@ def validate_adf_values(input_json):
             tcpa_consent = True
     if not email and not tcpa_consent:
         return {"status": "REJECTED", "code": "7_NO_CONSENT", "message": "Contact Method missing TCPA consent"}
-
+    logging.info("TCPA Consent present")
+    
     # request date in ISO8601 format
     if not validate_iso8601(input_json['requestdate']):
         return {"status": "REJECTED", "code": "3_INVALID_FIELD", "message": "Invalid DateTime"}
-
     return {"status": "OK"}
 
 
@@ -94,8 +106,10 @@ def check_validation(input_json):
         )
         response = validate_adf_values(input_json)
         if response['status'] == "REJECTED":
+            logging.error("Response status REJECTED")
             return False, response['code'], response['message']
+        logging.info("Response status OK")
         return True, "input validated", "validation_ok"
     except Exception as e:
-        logger.error(f"Validation failed: {e.message}")
+        logging.error(f"Validation failed: {e.message}")
         return False, "6_MISSING_FIELD", e.message
