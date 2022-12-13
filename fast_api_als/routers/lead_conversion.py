@@ -13,9 +13,7 @@ from fast_api_als.utils.cognito_client import get_user_role
 
 router = APIRouter()
 
-"""
-write proper logging and exception handling
-"""
+logging.basicConfig(filename='lead_conversion.log', format="%(asctime)s - %(levelname)s: %(message)s")
 
 def get_quicksight_data(lead_uuid, item):
     """
@@ -37,6 +35,7 @@ def get_quicksight_data(lead_uuid, item):
         "3pl": item.get('3pl', 'unknown'),
         "oem_responded": 1
     }
+    logging.info(f"create lead converted data. uuid -> {uuid}")
     return data, f"{item['make']}/1_{int(time.time())}_{lead_uuid}"
 
 
@@ -46,16 +45,16 @@ async def submit(file: Request, token: str = Depends(get_token)):
     body = json.loads(str(body, 'utf-8'))
 
     if 'lead_uuid' not in body or 'converted' not in body:
-        # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=404 , detail="lead_uuid or converted not found in body")
+        return
         
     lead_uuid = body['lead_uuid']
     converted = body['converted']
 
     oem, role = get_user_role(token)
     if role != "OEM":
-        # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=401, detail="Unauthorized User")
+        return
 
     is_updated, item = db_helper_session.update_lead_conversion(lead_uuid, oem, converted)
     if is_updated:
@@ -66,5 +65,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        # throw proper HTTPException
-        pass
+        raise HTTPException(status_code=400, detail="could not update lead conversion")
+        return
