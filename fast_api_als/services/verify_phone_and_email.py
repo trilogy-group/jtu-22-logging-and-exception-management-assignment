@@ -15,6 +15,7 @@ You also trying to undderstand the execution time factor.
 
 async def call_validation_service(url: str, topic: str, value: str, data: dict) -> None:  # 2
     if value == '':
+        logging.info()
         return
     async with httpx.AsyncClient() as client:  # 3
         response = await client.get(url)

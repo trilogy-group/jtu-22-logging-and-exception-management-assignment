@@ -20,7 +20,11 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
         pass
     if role == "ADMIN":
         provider = body['3pl']
-    apikey = db_helper_session.set_auth_key(username=provider)
+    try:
+        apikey = db_helper_session.set_auth_key(username=provider)
+    except Exception as e:
+        logging.error("API key not set:"+str(e.message))
+        raise e
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
@@ -37,7 +41,11 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
         pass
     if role == "ADMIN":
         provider = body['3pl']
-    apikey = db_helper_session.get_auth_key(username=provider)
+    try:
+        apikey = db_helper_session.get_auth_key(username=provider)
+    except Exception as e:
+        logging.error("API key not found:"+str(e.message))
+        raise e
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
