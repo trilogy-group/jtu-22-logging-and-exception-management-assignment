@@ -77,5 +77,5 @@ async def submit(file: Request, token: str = Depends(get_token)):
             "message": "Lead Conversion Status Update"
         }
     else:
-        logging.error("Lead conversion not updated")
-        raise HTTPException(status_code = 406, detail = "Lead conversion not updated")
+        logging.error("Lead conversion already updated")
+        raise HTTPException(status_code = 400, detail = "Lead conversion already updated")
