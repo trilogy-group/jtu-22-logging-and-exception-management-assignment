@@ -14,13 +14,28 @@ router = APIRouter()
 @router.post("/reset_authkey")
 async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
-    body = json.loads(body)
+    try:
+        body = json.loads(body)
+    except ValueError:
+        logging.error("JSON format invalid")
+        raise ValueError
     provider, role = get_user_role(token)
+    logging.debug("Provider, role = "+provider+", "+role)
     if role != "ADMIN" and (role != "3PL"):
-        pass
+        logging.error("Role required to be admin or 3PL")
+        raise HTTPException(status_code = 400, detail = "Role required to be admin or 3PL")
     if role == "ADMIN":
+        logging.info("Role is Admin, updating provider to 3PL")
         provider = body['3pl']
-    apikey = db_helper_session.set_auth_key(username=provider)
+    
+    logging.info("Trying to update API key")
+    try:
+        apikey = db_helper_session.set_auth_key(username=provider)
+        logging.debug("API key "+apikey)
+    except Exception as e:
+        logging.error("API key not set:"+str(e.message))
+        raise e
+    logging.info("Successfully updated API key")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey
@@ -30,14 +45,28 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
 @router.post("/view_authkey")
 async def view_authkey(request: Request, token: str = Depends(get_token)):
     body = await request.body()
-    body = json.loads(body)
+    try:
+        body = json.loads(body)
+    except ValueError:
+        logging.error("JSON format invalid")
+        raise ValueError
     provider, role = get_user_role(token)
-
-    if role != "ADMIN" and role != "3PL":
-        pass
+    logging.debug("Provider, role = "+provider+", "+role)
+    if role != "ADMIN" and (role != "3PL"):
+        logging.error("Role required to be admin or 3PL")
+        raise HTTPException(status_code = 400, detail = "Role required to be admin or 3PL")
     if role == "ADMIN":
+        logging.info("Role is Admin, updating provider to 3PL")
         provider = body['3pl']
-    apikey = db_helper_session.get_auth_key(username=provider)
+    
+    logging.info("Trying to get API key")
+    try:
+        apikey = db_helper_session.get_auth_key(username=provider)
+        logging.debug("API key "+apikey)
+    except Exception as e:
+        logging.error("API key not found:"+str(e.message))
+        raise e
+    logging.info("Successfully found API key")
     return {
         "status_code": HTTP_200_OK,
         "x-api-key": apikey

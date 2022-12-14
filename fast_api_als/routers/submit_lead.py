@@ -4,7 +4,7 @@ import logging
 
 from datetime import datetime
 from fastapi import APIRouter
-from fastapi import Request, Depends
+from fastapi import Request, Depends, HTTPException
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -38,7 +38,8 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
+        logging.error("Invalid API key")
+        raise HTTPException(status_code = 403, detail = "API key invalid")
     
     body = await file.body()
     body = str(body, 'utf-8')
@@ -47,6 +48,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # check if xml was not parsable, if not return
     if not obj:
+        logging.error("XML could not be parsed")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -54,20 +56,26 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
-        s3_helper_client.put_file(item, path)
+        try:
+            s3_helper_client.put_file(item, path)
+        except Exception as e:
+            logging.error("Could not put file "+item+" to path "+path)
+            raise e
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
             "message": "Error occured while parsing XML"
         }
-    
+    logging.info("Calculating lead hash")
     lead_hash = calculate_lead_hash(obj)
+    logging.info("Lead has calculated:"+str(lead_hash))
 
     # check if adf xml is valid
     validation_check, validation_code, validation_message = check_validation(obj)
 
     #if not valid return
     if not validation_check:
+        logging.error("Validation failed")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
         return {
@@ -95,11 +103,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                logging.warning("Duplicate API call")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logging.error("Duplicate lead")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -108,12 +118,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logging.error("Empty response")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logging.error("Threshold field not present")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -123,6 +135,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logging.info("Current dealer not available, finding nearest dealer")
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
@@ -145,6 +158,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
     else:
+        logging.info("Low score")
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
 
@@ -152,6 +166,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logging.info("Contact not verified")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -161,6 +176,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     # insert the lead into ddb with oem & customer details
     # delegate inserts to sqs queue
     if response_body['status'] == 'ACCEPTED':
+        logging.info("Accepted current response")
         make_model_filter = db_helper_session.get_make_model_filter_status(make)
         message = {
             'put_file': {
@@ -196,9 +212,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logging.error("Could not send message")
+            raise e
 
     else:
+        logging.info("Rejected current response")
         message = {
             'put_file': {
                 'item': item,
@@ -210,8 +231,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'response': response_body['status']
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logging.error("Could not send message")
+            raise e
+    logging.info("Message sent successfully")
     time_taken = (int(time.time() * 1000.0) - start)
+    logging.debug("Time taken for response "+str(time_taken))
 
     response_message = f"{result} Response Time : {time_taken} ms"
 
