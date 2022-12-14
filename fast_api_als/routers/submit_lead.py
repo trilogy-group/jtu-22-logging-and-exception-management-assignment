@@ -56,7 +56,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
-        s3_helper_client.put_file(item, path)
+        try:
+            s3_helper_client.put_file(item, path)
+        except Exception as e:
+            logging.error("Could not put file "+item+" to path "+path)
+            raise e
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -208,7 +212,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logging.error("Could not send message")
+            raise e
 
     else:
         logging.info("Rejected current response")
@@ -223,8 +231,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'response': response_body['status']
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e:
+            logging.error("Could not send message")
+            raise e
+    logging.info("Message sent successfully")
     time_taken = (int(time.time() * 1000.0) - start)
+    logging.debug("Time taken for response "+str(time_taken))
 
     response_message = f"{result} Response Time : {time_taken} ms"
 
