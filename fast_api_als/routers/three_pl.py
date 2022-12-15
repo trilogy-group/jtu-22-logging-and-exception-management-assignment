@@ -17,7 +17,7 @@ async def reset_authkey(request: Request, token: str = Depends(get_token)):
     body = json.loads(body)
     provider, role = get_user_role(token)
     if role != "ADMIN" and (role != "3PL"):
-        logging.info("Cannot provide access")
+        logging.error("Cannot provide access")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     if role == "ADMIN":
         provider = body['3pl']
@@ -35,7 +35,7 @@ async def view_authkey(request: Request, token: str = Depends(get_token)):
     provider, role = get_user_role(token)
 
     if role != "ADMIN" and role != "3PL":
-        logging.info("Cannot provide access")
+        logging.error("Cannot provide access")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     if role == "ADMIN":
         provider = body['3pl']

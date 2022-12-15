@@ -18,7 +18,7 @@ from fast_api_als.utils.boto3_utils import get_boto3_session
 def commonLogging(res,data):
     statusCode = res['ResponseMetadata']['HTTPStatusCode'];
     if(statusCode<400):
-        logging.info(f"Request completed successfully with status code {statusCode} for operation {data}")
+        logging.info(f"Request completed with status code {statusCode} for operation {data}")
     else: logging.error(f"Request failed with status code {statusCode} for operation {data}")
 
 class DBHelper:

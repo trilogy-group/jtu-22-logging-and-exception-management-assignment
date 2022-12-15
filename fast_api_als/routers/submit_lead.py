@@ -56,7 +56,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             }
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
-        s3_helper_client.put_file(item, path)
+        try:
+            s3_helper_client.put_file(item, path)
+        except Exception as e: 
+            logging.error("Couldn't put file")
+            raise e
+            
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -72,7 +77,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         logging.info("Failed to validate adf xml")
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
-        s3_helper_client.put_file(item, path)
+        try:
+            s3_helper_client.put_file(item, path)
+        except Exception as e: 
+            logging.error("Couldn't put file")
+            raise e
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -205,7 +214,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e: 
+            logging.error("Couldn't send message")
+            raise e
 
     else:
         message = {
@@ -219,7 +232,11 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'response': response_body['status']
             }
         }
-        res = sqs_helper_session.send_message(message)
+        try:
+            res = sqs_helper_session.send_message(message)
+        except Exception as e: 
+            logging.error("Couldn't send message")
+            raise e
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
