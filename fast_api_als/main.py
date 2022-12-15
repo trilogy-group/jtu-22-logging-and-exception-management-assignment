@@ -1,4 +1,5 @@
 import time
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# configuring the logger 
+logging.basicConfig(filename="newfile.log",
+					format='%(asctime)s %(message)s',
+					filemode='w')
 
 @app.get("/")
 def root():
