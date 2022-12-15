@@ -1,5 +1,5 @@
 import time
-
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fast_api_als.routers import users, submit_lead, lead_conversion, reinforcement, oem, three_pl, quicksight
@@ -15,6 +15,8 @@ app.include_router(quicksight.router)
 
 # only present during test development
 # app.include_router(test_api.router)
+
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
 
 origins = ["*"]
 app.add_middleware(

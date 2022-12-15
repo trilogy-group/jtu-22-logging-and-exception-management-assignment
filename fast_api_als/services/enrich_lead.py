@@ -12,4 +12,14 @@ what exceptions can be thrown here?
 
 
 def get_enriched_lead_json(adf_json: dict) -> dict:
-    pass
+    dict_keys = adf_json.keys()
+    if("adf" not in dict_keys):
+        logging.error("adf key missing")
+        raise KeyError
+    try: 
+        temp = json.loads(adf_json) 
+        #do some work
+    except ValueError as e:
+        logging.error("Value error "+str(e))
+        raise ValueError 
+        
