@@ -65,7 +65,11 @@ async def submit(file: Request, token: str = Depends(get_token)):
     if is_updated:
         logging.info("Lead conversion updated")
         data, path = get_quicksight_data(lead_uuid, item)
-        s3_helper_client.put_file(data, path)
+        try:
+            s3_helper_client.put_file(data, path)
+        except Exception as e:
+            logging.error("Failed to put file in S3"+ str(e))
+            raise e
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Lead Conversion Status Update"

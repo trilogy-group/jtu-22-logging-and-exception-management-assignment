@@ -45,8 +45,7 @@ def parse_xml(adf_xml):
         return obj
     except:
         logging.error("XML parsing failed, returning null")
-        return None
-
+        raise ValueError
 
 def validate_adf_values(input_json):
     input_json = input_json['adf']['prospect']
