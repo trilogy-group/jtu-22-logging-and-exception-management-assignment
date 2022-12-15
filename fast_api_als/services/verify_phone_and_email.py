@@ -47,8 +47,18 @@ async def verify_phone_and_email(email: str, phone_number: str) -> bool:
 
     if "email" in data:
         if data["email"]["DtResponse"]["Result"][0]["StatusCode"] in ("0", "1"):
+            logging.info("email is valid")  
             email_valid = True
+        else: 
+            logging.error("email invalid")
+    else:
+        logging.error("email invalid")
     if "phone" in data:
         if data["phone"]["DtResponse"]["Result"][0]["IsValid"] == "True":
+            logging.info("phone is valid")
             phone_valid = True
+        else: 
+            logging.error("phone invalid")
+    else:
+        logging.error("phone invalid")
     return email_valid | phone_valid
