@@ -24,4 +24,4 @@ def get_enriched_lead_json(adf_json: dict) -> dict:
         logger.error("adf_json is not a dictionary object")
         raise TypeError("adf_json is not a dictionary object")
     logger.info("adf_json passed the get_enriched_lead_json check")
-    pass
+    

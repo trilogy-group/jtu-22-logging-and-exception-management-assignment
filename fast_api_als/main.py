@@ -1,5 +1,5 @@
 import time
-
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fast_api_als.routers import users, submit_lead, lead_conversion, reinforcement, oem, three_pl, quicksight
@@ -12,6 +12,8 @@ app.include_router(reinforcement.router)
 app.include_router(oem.router)
 app.include_router(three_pl.router)
 app.include_router(quicksight.router)
+
+logger = logging.getLogger(__name__)
 
 # only present during test development
 # app.include_router(test_api.router)
@@ -34,5 +36,7 @@ def root():
 @app.get("/ping")
 def ping():
     start = time.process_time()
+    logger.info("Ping sent.")
     time_taken = (time.process_time() - start) * 1000
+    logger.info(f"Pong returned in {time_taken} ms")
     return {f"Pong with response time {time_taken} ms"}

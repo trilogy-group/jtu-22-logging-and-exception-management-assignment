@@ -348,17 +348,19 @@ class DBHelper:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}") & Key('sk').eq(f"{make}#{model}")
             )
+            msg = f"lead does not exists with uuid: {uuid}, model: {model}, make: {make}"
             if len(res['Items']):
                 lead_exist = True
-            msg = f"lead exists with uuid: {uuid}"
+                msg = f"lead_exists with uuid: {uuid}, model: {model}, make: {make}"
             common_logger(msg, res)
         else:
             res = self.table.query(
                 KeyConditionExpression=Key('pk').eq(f"{make}#{uuid}")
             )
+            msg = f"lead does not exists with uuid: {uuid}, model: {model}, make: {make}"
             if len(res['Items']):
                 lead_exist = True
-            msg = f"lead exists with uuid: {uuid}"
+                msg = f"lead_exists with uuid: {uuid}, model: {model}, make: {make}"
             common_logger(msg, res)
         return lead_exist
 
@@ -381,7 +383,9 @@ class DBHelper:
 
         for item in customer_leads:
             if self.lead_exists(item['pk'], make, model):
+                logger.info("Duplicate Lead found")
                 return {"Duplicate_Lead": True}
+        logger.info("Duplicate lead not found")
         return {"Duplicate_Lead": False}
 
     def get_api_key_author(self, apikey):
