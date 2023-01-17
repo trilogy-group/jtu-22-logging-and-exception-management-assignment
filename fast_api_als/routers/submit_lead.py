@@ -4,22 +4,28 @@ import logging
 
 from datetime import datetime
 from fastapi import APIRouter
-from fastapi import Request, Depends
+from fastapi import Request, Depends, HTTPException
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from fast_api_als.services.authenticate import get_api_key
-from fast_api_als.services.enrich.customer_info import get_contact_details
-from fast_api_als.services.enrich.demographic_data import get_customer_coordinate
-from fast_api_als.services.enrich_lead import get_enriched_lead_json
-from fast_api_als.services.new_verify_phone_and_email import new_verify_phone_and_email
-from fast_api_als.utils.adf import parse_xml, check_validation
-from fast_api_als.utils.calculate_lead_hash import calculate_lead_hash
-from fast_api_als.database.db_helper import db_helper_session
-from fast_api_als.services.ml_helper import conversion_to_ml_input, score_ml_input
-from fast_api_als.utils.quicksight_utils import create_quicksight_data
-from fast_api_als.quicksight.s3_helper import s3_helper_client
-from fast_api_als.utils.sqs_utils import sqs_helper_session
+logger = logging.getLogger(__name__)
+
+try: 
+    from fast_api_als.services.authenticate import get_api_key
+    from fast_api_als.services.enrich.customer_info import get_contact_details
+    from fast_api_als.services.enrich.demographic_data import get_customer_coordinate
+    from fast_api_als.services.enrich_lead import get_enriched_lead_json
+    from fast_api_als.services.new_verify_phone_and_email import new_verify_phone_and_email
+    from fast_api_als.utils.adf import parse_xml, check_validation
+    from fast_api_als.utils.calculate_lead_hash import calculate_lead_hash
+    from fast_api_als.database.db_helper import db_helper_session
+    from fast_api_als.services.ml_helper import conversion_to_ml_input, score_ml_input
+    from fast_api_als.utils.quicksight_utils import create_quicksight_data
+    from fast_api_als.quicksight.s3_helper import s3_helper_client
+    from fast_api_als.utils.sqs_utils import sqs_helper_session
+except:
+    raise ImportError("Import Error in submit_lead.py from fast_api_als")
+    logger.error("Import Error in submit_lead.py from fast_api_als")
 
 router = APIRouter()
 
@@ -38,15 +44,25 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
-    
-    body = await file.body()
-    body = str(body, 'utf-8')
-
+        logger.info("Failed to verify Database API key in submit_lead.py")
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    try:    
+        startTime = time.time()
+        logger.info("Waiting for Request Body")
+        body = await file.body()
+        endTime = time.time()
+        elapsedTime = (endTime-startTime)*1000
+        logger.info(f"Request Body arrived in {elapsedTime} ms")
+        body = str(body, 'utf-8')
+    except:
+        raise HTTPException(status_code=400, detail="Bad request. Request body did not arrive in submit_lead.py") 
+        logger.error("Bad request. Request body did not arrive in submit_lead.py")   
+    logger.info("Parsing the request body")
     obj = parse_xml(body)
 
     # check if xml was not parsable, if not return
     if not obj:
+        logger.info("Request Failed due to error in xml parsing.")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -55,6 +71,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
