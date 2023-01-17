@@ -4,22 +4,28 @@ import logging
 
 from datetime import datetime
 from fastapi import APIRouter
-from fastapi import Request, Depends
+from fastapi import Request, Depends, HTTPException
 from fastapi.security.api_key import APIKey
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from fast_api_als.services.authenticate import get_api_key
-from fast_api_als.services.enrich.customer_info import get_contact_details
-from fast_api_als.services.enrich.demographic_data import get_customer_coordinate
-from fast_api_als.services.enrich_lead import get_enriched_lead_json
-from fast_api_als.services.new_verify_phone_and_email import new_verify_phone_and_email
-from fast_api_als.utils.adf import parse_xml, check_validation
-from fast_api_als.utils.calculate_lead_hash import calculate_lead_hash
-from fast_api_als.database.db_helper import db_helper_session
-from fast_api_als.services.ml_helper import conversion_to_ml_input, score_ml_input
-from fast_api_als.utils.quicksight_utils import create_quicksight_data
-from fast_api_als.quicksight.s3_helper import s3_helper_client
-from fast_api_als.utils.sqs_utils import sqs_helper_session
+logger = logging.getLogger(__name__)
+
+try: 
+    from fast_api_als.services.authenticate import get_api_key
+    from fast_api_als.services.enrich.customer_info import get_contact_details
+    from fast_api_als.services.enrich.demographic_data import get_customer_coordinate
+    from fast_api_als.services.enrich_lead import get_enriched_lead_json
+    from fast_api_als.services.new_verify_phone_and_email import new_verify_phone_and_email
+    from fast_api_als.utils.adf import parse_xml, check_validation
+    from fast_api_als.utils.calculate_lead_hash import calculate_lead_hash
+    from fast_api_als.database.db_helper import db_helper_session
+    from fast_api_als.services.ml_helper import conversion_to_ml_input, score_ml_input
+    from fast_api_als.utils.quicksight_utils import create_quicksight_data
+    from fast_api_als.quicksight.s3_helper import s3_helper_client
+    from fast_api_als.utils.sqs_utils import sqs_helper_session
+except:
+    raise ImportError("Import Error in submit_lead.py from fast_api_als")
+    logger.error("Import Error in submit_lead.py from fast_api_als")
 
 router = APIRouter()
 
@@ -38,15 +44,25 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     
     if not db_helper_session.verify_api_key(apikey):
         # throw proper fastpi.HTTPException
-        pass
-    
-    body = await file.body()
-    body = str(body, 'utf-8')
-
+        logger.info("Failed to verify Database API key in submit_lead.py")
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    try:    
+        startTime = time.time()
+        logger.info("Waiting for Request Body")
+        body = await file.body()
+        endTime = time.time()
+        elapsedTime = (endTime-startTime)*1000
+        logger.info(f"Request Body arrived in {elapsedTime} ms")
+        body = str(body, 'utf-8')
+    except:
+        raise HTTPException(status_code=400, detail="Bad request. Request body did not arrive in submit_lead.py") 
+        logger.error("Bad request. Request body did not arrive in submit_lead.py")   
+    logger.info("Parsing the request body")
     obj = parse_xml(body)
 
     # check if xml was not parsable, if not return
     if not obj:
+        logger.info("Request Failed due to error in xml parsing.")
         provider = db_helper_session.get_api_key_author(apikey)
         obj = {
             'provider': {
@@ -55,6 +71,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         }
         item, path = create_quicksight_data(obj, 'unknown_hash', 'REJECTED', '1_INVALID_XML', {})
         s3_helper_client.put_file(item, path)
+
         return {
             "status": "REJECTED",
             "code": "1_INVALID_XML",
@@ -70,6 +87,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
     if not validation_check:
         item, path = create_quicksight_data(obj['adf']['prospect'], lead_hash, 'REJECTED', validation_code, {})
         s3_helper_client.put_file(item, path)
+        logger.info(f"Request failed. Code: {validation_code} and Message: {validation_message}")
         return {
             "status": "REJECTED",
             "code": validation_code,
@@ -95,11 +113,13 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
         for future in as_completed(futures):
             result = future.result()
             if result.get('Duplicate_Api_Call', {}).get('status', False):
+                logger.info("Duplicate Api Call. Request failed.")
                 return {
                     "status": f"Already {result['Duplicate_Api_Call']['response']}",
                     "message": "Duplicate Api Call"
                 }
             if result.get('Duplicate_Lead', False):
+                logger.info("Duplicate Lead. Request failed.")
                 return {
                     "status": "REJECTED",
                     "code": "12_DUPLICATE",
@@ -108,12 +128,14 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
             if "fetch_oem_data" in result:
                 fetched_oem_data = result['fetch_oem_data']
     if fetched_oem_data == {}:
+        logger.info("OEM Data not found. Request failed.")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
             "message": "OEM data not found"
         }
     if 'threshold' not in fetched_oem_data:
+        logger.info("OEM Data not found. Request failed.")
         return {
             "status": "REJECTED",
             "code": "20_OEM_DATA_NOT_FOUND",
@@ -123,6 +145,7 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # if dealer is not available then find nearest dealer
     if not dealer_available:
+        logger.info("Dealer not available. Finding nearest dealer.")
         lat, lon = get_customer_coordinate(obj['adf']['prospect']['customer']['contact']['address']['postalcode'])
         nearest_vendor = db_helper_session.fetch_nearest_dealer(oem=make,
                                                                 lat=lat,
@@ -138,20 +161,24 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
 
     # score the lead
     result = score_ml_input(ml_input, make, dealer_available)
+    logger.info(f"Lead score of {result} found.")
 
     # create the response
     response_body = {}
     if result >= oem_threshold:
         response_body["status"] = "ACCEPTED"
         response_body["code"] = "0_ACCEPTED"
+        logger.info("Result is acceptable (Higher than oem_threshold). ")
     else:
         response_body["status"] = "REJECTED"
         response_body["code"] = "16_LOW_SCORE"
+        logger.info("Creation of response body failed. Result is less than oem_threshold.")
 
     # verify the customer
     if response_body['status'] == 'ACCEPTED':
         contact_verified = await new_verify_phone_and_email(email, phone)
         if not contact_verified:
+            logger.info("Contact not verified. Request Failed.")
             response_body['status'] = 'REJECTED'
             response_body['code'] = '17_FAILED_CONTACT_VALIDATION'
 
@@ -196,8 +223,12 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'model': model
             }
         }
-        res = sqs_helper_session.send_message(message)
-
+        logger.info("Sending Accepted message to sqs helper.")
+        try:
+            res = sqs_helper_session.send_message(message)
+            logger.info("Sending Accepted Message successful")
+        except Exception as e:
+            logger.info(f"Sending Accepted message failed with {e}")
     else:
         message = {
             'put_file': {
@@ -210,9 +241,15 @@ async def submit(file: Request, apikey: APIKey = Depends(get_api_key)):
                 'response': response_body['status']
             }
         }
-        res = sqs_helper_session.send_message(message)
+        logger.info("Sending Rejected message to sqs helper.")
+        try:
+            res = sqs_helper_session.send_message(message)
+            logger.info("Sending Rejected Message successful")
+        except Exception as e:
+            logger.info(f"Sending Rejected message failed with {e}")
+
     time_taken = (int(time.time() * 1000.0) - start)
 
     response_message = f"{result} Response Time : {time_taken} ms"
-
+    log.info(response_message)
     return response_body
