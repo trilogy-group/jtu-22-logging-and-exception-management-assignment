@@ -1,7 +1,7 @@
 pandas==1.4.1
 sagemaker==2.78.0
 boto3==1.20.26
-fastapi==0.70.1
+fastapi==0.109.1
 uvicorn==0.15.0
 pgeocode==0.2.0
 xmltodict==0.12.0
